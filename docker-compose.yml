@@ -1,0 +1,40 @@
+# Hostinger VPS → Docker Manager → Compose → "Compose manually" (paste this) or "Compose from URL".
+# Before deploying, change the 3 lines marked  <-- CHANGE.
+#
+# HTTPS: deploy Hostinger's "Traefik" one-click template first (Docker Manager → Compose → One Click
+# Deploy → Traefik). It provides the "traefik-proxy" network and free Let's Encrypt certificates.
+# Point your domain's DNS A record to the VPS IP.
+#
+# No Traefik? Remove the "networks" and "labels" sections (and the networks block at the bottom)
+# and uncomment "ports"; the app is then on http://YOUR-VPS-IP:3000.
+
+services:
+  wa-saas:
+    image: ghcr.io/YOUR-GITHUB-USER/YOUR-REPO:latest   # <-- CHANGE (built by .github/workflows/docker-publish.yml)
+    container_name: wa-saas
+    restart: unless-stopped
+    environment:
+      - TRUST_PROXY=1
+      # Protects the first-run /admin setup page until you've created your account:
+      - SETUP_KEY=change-me-to-a-random-secret               # <-- CHANGE
+      # Optional, for the /api/cron uptime/reconnect URL:
+      - CRON_KEY=
+    volumes:
+      - wa-storage:/app/storage          # all customer data + WhatsApp logins (keep it!)
+    # ports:
+    #   - "3000:3000"
+    networks:
+      - traefik-proxy
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.wa-saas.rule=Host(`yourdomain.com`)   # <-- CHANGE
+      - traefik.http.routers.wa-saas.entrypoints=websecure
+      - traefik.http.routers.wa-saas.tls.certresolver=letsencrypt
+      - traefik.http.services.wa-saas.loadbalancer.server.port=3000   # = the app's PORT (3000 in the image; don't change)
+
+volumes:
+  wa-storage:
+
+networks:
+  traefik-proxy:
+    external: true

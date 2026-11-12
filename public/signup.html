@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Start your free trial</title>
+  <link rel="stylesheet" href="site.css" />
+</head>
+<body>
+  <div class="auth-page">
+    <div class="auth-side">
+      <a class="logo" href="/" style="color:#fff"><i>✓</i> <span class="brand">WA Marketing</span></a>
+      <h1>Start your <span class="trial-days">14</span>-day free trial</h1>
+      <ul>
+        <li>WhatsApp campaigns with images &amp; buttons</li>
+        <li>Drag-and-drop chatbot builder</li>
+        <li>Team inbox with tickets &amp; departments</li>
+        <li>Block-risk protection for your numbers</li>
+        <li>No credit card required</li>
+      </ul>
+    </div>
+    <div class="auth-main">
+      <form class="auth-form" id="signup-form" novalidate>
+        <h2>Create your workspace</h2>
+        <p class="muted">Already have an account? <a href="/app">Log in</a></p>
+        <label>Company name<input name="company" required maxlength="80" autocomplete="organization" /></label>
+        <label>Your name<input name="name" required maxlength="80" autocomplete="name" /></label>
+        <label>Work email<input name="email" type="email" required autocomplete="email" /></label>
+        <label>Password<input name="password" type="password" required minlength="8" autocomplete="new-password" placeholder="At least 8 characters" /></label>
+        <div class="hp" aria-hidden="true"><label>Website<input name="website" tabindex="-1" autocomplete="off" /></label></div>
+        <button class="btn primary" id="signup-btn">Create workspace</button>
+        <p class="error" id="signup-error" role="alert"></p>
+        <p class="muted">By signing up you agree to message only customers who have opted in, and to follow WhatsApp's terms.</p>
+      </form>
+    </div>
+  </div>
+  <script>
+    fetch('/api/public/info').then((r) => r.json()).then((info) => {
+      document.querySelectorAll('.brand').forEach((el) => { el.textContent = info.brandName; });
+      document.querySelectorAll('.trial-days').forEach((el) => { el.textContent = info.trialDays; });
+      document.title = `Start your free trial — ${info.brandName}`;
+    }).catch(() => {});
+    const form = document.getElementById('signup-form');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const err = document.getElementById('signup-error');
+      const btn = document.getElementById('signup-btn');
+      const data = Object.fromEntries(new FormData(form));
+      if (!data.company.trim() || !data.name.trim()) return (err.textContent = 'Please fill in your company and name.');
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) return (err.textContent = 'Please enter a valid email address.');
+      if (data.password.length < 8) return (err.textContent = 'Password must be at least 8 characters.');
+      err.textContent = '';
+      btn.disabled = true;
+      btn.textContent = 'Creating your workspace…';
+      try {
+        const res = await fetch('/api/public/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+        const out = await res.json();
+        if (!res.ok) throw new Error(out.error || 'Signup failed');
+        location.href = `/app#token=${encodeURIComponent(out.token)}`;
+      } catch (e2) {
+        err.textContent = e2.message;
+        btn.disabled = false;
+        btn.textContent = 'Create workspace';
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+node_modules
+data
+sessions
+storage
+deploy
+.git
+.env
+*.zip
+npm-debug.log

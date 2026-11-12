@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Platform Admin</title>
+  <meta name="robots" content="noindex" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body>
+  <section id="setup-view" class="login hidden">
+    <form id="setup-form" class="card login-card">
+      <h1>Welcome 👋</h1>
+      <p class="muted">Create your platform owner (super admin) account. This page only works once.</p>
+      <label>Your name <input name="name" required autocomplete="name" /></label>
+      <label>Email <input name="email" type="email" required autocomplete="username" /></label>
+      <label>Password <input name="password" type="password" required minlength="10" autocomplete="new-password" placeholder="At least 10 characters" /></label>
+      <label id="setup-key-field" class="hidden">Setup key <input name="setupKey" autocomplete="off" placeholder="SETUP_KEY from your environment" /></label>
+      <button class="btn primary">Create account</button>
+      <p id="setup-error" class="error"></p>
+    </form>
+  </section>
+
+  <section id="login-view" class="login hidden">
+    <form id="login-form" class="card login-card">
+      <h1>Platform admin</h1>
+      <p class="muted">Super admin sign-in</p>
+      <label>Email <input name="email" type="email" required autocomplete="username" /></label>
+      <label>Password <input name="password" type="password" required autocomplete="current-password" /></label>
+      <button class="btn primary">Sign in</button>
+      <p id="login-error" class="error"></p>
+    </form>
+  </section>
+
+  <div id="app-view" class="layout hidden">
+    <nav class="sidebar">
+      <div class="brand"><span class="brand-mark">★</span> Platform admin</div>
+      <a data-tab="overview" class="active">Overview</a>
+      <a data-tab="tenants">Customers</a>
+      <a data-tab="requests">Plan requests <span id="req-badge" class="nav-badge hidden"></span></a>
+      <a data-tab="payments">Payments</a>
+      <a data-tab="plans">Plans &amp; pricing</a>
+      <a data-tab="settings">Settings</a>
+      <a data-tab="audit">Activity log</a>
+      <div class="me">
+        <div><strong id="me-name"></strong></div>
+        <a id="password-btn">Change password</a>
+        <a id="logout-btn">Log out</a>
+      </div>
+    </nav>
+
+    <main>
+      <section data-panel="overview">
+        <div class="dash-head"><div><h2>Overview</h2><p class="muted" id="ov-date"></p></div>
+          <button class="btn primary" data-goto="tenants">Customers</button></div>
+        <div class="kpis" id="ov-kpis"></div>
+        <div class="dash-grid">
+          <div class="card panel"><div class="panel-head"><h3>Customers by status</h3></div><div id="ov-states"></div></div>
+          <div class="card panel"><div class="panel-head"><h3>Trials ending in 3 days</h3></div><div id="ov-trials"></div></div>
+          <div class="card panel"><div class="panel-head"><h3>Renewals due</h3></div><div id="ov-renewals"></div></div>
+          <div class="card panel span-3"><div class="panel-head"><h3>Recent payments</h3><button class="btn sm ghost" data-goto="payments">All payments</button></div><div id="ov-payments"></div></div>
+        </div>
+      </section>
+
+      <section data-panel="tenants" class="hidden">
+        <div class="dash-head"><div><h2>Customers</h2><p class="muted">Every workspace on your platform.</p></div>
+          <button class="btn primary" id="new-tenant-btn">+ Add customer</button></div>
+        <form id="new-tenant-form" class="card stack hidden">
+          <h3>Add a customer workspace</h3>
+          <input name="company" placeholder="Company name" required />
+          <input name="name" placeholder="Owner's name" required />
+          <input name="email" type="email" placeholder="Owner's email (login)" required />
+          <input name="password" placeholder="Temporary password (min 8)" required minlength="8" />
+          <label>Plan <select name="plan" class="plan-select"></select></label>
+          <label>Trial days <input name="trialDays" type="number" min="0" max="365" value="14" /></label>
+          <div class="row"><button class="btn primary">Create</button><button type="button" class="btn" id="new-tenant-cancel">Cancel</button></div>
+        </form>
+        <div class="card">
+          <div class="filters" style="margin-bottom:10px">
+            <input id="t-search" placeholder="Search company or email" />
+            <select id="t-state"><option value="">All statuses</option><option>trial</option><option>active</option><option>grace</option><option>expired</option><option>suspended</option></select>
+          </div>
+          <table>
+            <thead><tr><th>Customer</th><th>Plan</th><th>Status</th><th class="n">Numbers</th><th class="n">Users</th><th class="n">Msgs / month</th><th>Last login</th><th></th></tr></thead>
+            <tbody id="tenants"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section data-panel="requests" class="hidden">
+        <div class="dash-head"><div><h2>Plan requests</h2><p class="muted">Customers who asked for a plan or renewal. Check the payment, then record it.</p></div></div>
+        <div class="card"><table><thead><tr><th>Date</th><th>Customer</th><th>Plan</th><th class="n">Months</th><th class="n">Amount</th><th>Reference / message</th><th>Status</th><th></th></tr></thead><tbody id="requests"></tbody></table></div>
+      </section>
+
+      <section data-panel="payments" class="hidden">
+        <div class="dash-head"><div><h2>Payments</h2><p class="muted" id="pay-total"></p></div><button class="btn" id="pay-csv">Download CSV</button></div>
+        <div class="card"><table><thead><tr><th>Date</th><th>Customer</th><th>Plan</th><th class="n">Months</th><th class="n">Amount</th><th>Method</th><th>Reference</th><th>Period</th><th>By</th></tr></thead><tbody id="payments"></tbody></table></div>
+      </section>
+
+      <section data-panel="plans" class="hidden">
+        <div class="dash-head"><div><h2>Plans &amp; pricing</h2><p class="muted">Shown on your pricing page. Use -1 for unlimited. Changes apply to customers immediately.</p></div>
+          <div class="row"><button class="btn" id="add-plan">+ Add plan</button><button class="btn primary" id="save-plans">Save plans</button></div></div>
+        <div class="card" style="overflow-x:auto"><table class="plans-table"><thead><tr><th>ID</th><th>Name</th><th class="n">Price / month</th><th class="n">Numbers</th><th class="n">Users</th><th class="n">Contacts</th><th class="n">Messages / month</th><th class="n">Flows</th><th>Popular</th><th>On sale</th><th></th></tr></thead><tbody id="plans"></tbody></table></div>
+        <p id="plans-result" class="muted small"></p>
+      </section>
+
+      <section data-panel="settings" class="hidden">
+        <div class="dash-head"><div><h2>Platform settings</h2></div></div>
+        <form id="settings-form" class="card stack">
+          <label>Product / brand name<input name="brandName" required maxlength="60" /></label>
+          <label>Free trial (days)<input name="trialDays" type="number" min="0" max="90" required /></label>
+          <label>Trial plan (limits during the trial)<select name="trialPlan" class="plan-select"></select></label>
+          <label>Grace period after the paid period ends (days)<input name="graceDays" type="number" min="0" max="30" required /></label>
+          <label>Currency symbol<input name="currency" maxlength="5" required /></label>
+          <label>Support email (shown to customers)<input name="supportEmail" type="email" /></label>
+          <label>Payment instructions (shown on the customer's Subscription page)<textarea name="paymentInstructions" rows="6"></textarea></label>
+          <div class="row"><button class="btn primary">Save settings</button><span id="settings-result" class="muted small"></span></div>
+        </form>
+      </section>
+
+      <section data-panel="audit" class="hidden">
+        <div class="dash-head"><div><h2>Activity log</h2><p class="muted">Signups, payments and admin actions.</p></div></div>
+        <div class="card"><table><thead><tr><th>Time</th><th>By</th><th>Action</th><th>Details</th></tr></thead><tbody id="audit"></tbody></table></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- customer detail drawer -->
+  <div class="drawer-backdrop hidden" id="drawer-backdrop"></div>
+  <aside class="drawer hidden" id="drawer" aria-label="Customer details"></aside>
+
+  <script src="admin.js"></script>
+</body>
+</html>

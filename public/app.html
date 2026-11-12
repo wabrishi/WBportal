@@ -1,0 +1,715 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WA Marketing</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Icon set (stroke icons, 24x24) -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.6 8.6 0 0 1-3.9-.9L3 21l1.9-5A8.4 8.4 0 0 1 12 3a8.5 8.5 0 0 1 9 8.5z"/></symbol>
+      <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></symbol>
+      <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1z"/></symbol>
+      <symbol id="i-send" viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></symbol>
+      <symbol id="i-users" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.9"/><path d="M16 3.1a4 4 0 0 1 0 7.8"/></symbol>
+      <symbol id="i-megaphone" viewBox="0 0 24 24"><path d="M3 11v2a1 1 0 0 0 1 1h3l6 5V5L7 10H4a1 1 0 0 0-1 1z"/><path d="M16 8a5 5 0 0 1 0 8"/><path d="M19 5a9 9 0 0 1 0 14"/></symbol>
+      <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></symbol>
+      <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M11 18h2"/></symbol>
+      <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></symbol>
+      <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 2 10 5-10 5L2 7z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></symbol>
+      <symbol id="i-key" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.8-9.8M17 6l3 3M14 9l2 2"/></symbol>
+      <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></symbol>
+      <symbol id="i-card" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></symbol>
+      <symbol id="i-flow" viewBox="0 0 24 24"><rect x="3" y="3" width="6" height="6" rx="1.5"/><rect x="15" y="15" width="6" height="6" rx="1.5"/><path d="M9 6h4a2 2 0 0 1 2 2v7"/></symbol>
+      <symbol id="i-play" viewBox="0 0 24 24"><path d="m6 4 14 8-14 8z"/></symbol>
+      <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01"/></symbol>
+      <symbol id="i-split" viewBox="0 0 24 24"><path d="M6 3v6a6 6 0 0 0 6 6h6M18 15l-3-3M18 15l-3 3M6 21v-6"/></symbol>
+      <symbol id="i-zap" viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+      <symbol id="i-stop" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/></symbol>
+      <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
+      <symbol id="i-x" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></symbol>
+      <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></symbol>
+      <symbol id="i-in" viewBox="0 0 24 24"><path d="M17 7 7 17M16 17H7V8"/></symbol>
+      <symbol id="i-out" viewBox="0 0 24 24"><path d="M7 17 17 7M8 7h9v9"/></symbol>
+    </defs>
+  </svg>
+  <!-- Login -->
+  <section id="login-view" class="login hidden">
+    <form id="login-form" class="card login-card">
+      <h1 class="brand-name">WA Marketing</h1>
+      <p class="muted">Sign in to your workspace</p>
+      <label>Email <input name="username" required autocomplete="username" /></label>
+      <label>Password <input name="password" type="password" required autocomplete="current-password" /></label>
+      <button class="btn primary">Sign in</button>
+      <p id="login-error" class="error"></p>
+      <p class="muted small" style="text-align:center;margin:0">New here? <a href="/signup">Start a free trial</a></p>
+    </form>
+  </section>
+
+  <!-- App -->
+  <div id="app-view" class="layout hidden">
+    <nav class="sidebar">
+      <div class="brand"><span class="brand-mark"><svg class="ic"><use href="#i-chat"/></svg></span> <span class="brand-name">WA Marketing</span></div>
+      <div class="workspace-chip" id="ws-chip"></div>
+      <a data-tab="dashboard" class="active"><svg class="ic"><use href="#i-grid"/></svg>Dashboard</a>
+      <a data-tab="tickets"><svg class="ic"><use href="#i-inbox"/></svg>Tickets <span id="ticket-badge" class="nav-badge hidden"></span></a>
+      <a data-tab="send" data-roles="admin,manager"><svg class="ic"><use href="#i-send"/></svg>Send Message</a>
+      <a data-tab="contacts" data-roles="admin,manager"><svg class="ic"><use href="#i-users"/></svg>Contacts</a>
+      <a data-tab="campaigns" data-roles="admin,manager"><svg class="ic"><use href="#i-megaphone"/></svg>Campaigns</a>
+      <a data-tab="flows" data-roles="admin,manager"><svg class="ic"><use href="#i-flow"/></svg>Chatbot Flows</a>
+      <a data-tab="logs" data-roles="admin,manager"><svg class="ic"><use href="#i-list"/></svg>Message Logs</a>
+      <div class="nav-section" data-roles="admin">Admin</div>
+      <a data-tab="sessions" data-roles="admin"><svg class="ic"><use href="#i-phone"/></svg>WhatsApp Numbers</a>
+      <a data-tab="risk" data-roles="admin"><svg class="ic"><use href="#i-shield"/></svg>Block Risk <span id="risk-badge" class="nav-badge warn hidden"></span></a>
+      <a data-tab="users" data-roles="admin"><svg class="ic"><use href="#i-user"/></svg>Users</a>
+      <a data-tab="departments" data-roles="admin,manager"><svg class="ic"><use href="#i-layers"/></svg>Departments</a>
+      <a data-tab="keys" data-roles="admin"><svg class="ic"><use href="#i-key"/></svg>API Keys</a>
+      <a data-tab="docs" data-roles="admin"><svg class="ic"><use href="#i-book"/></svg>API Docs</a>
+      <a data-tab="billing" data-roles="admin"><svg class="ic"><use href="#i-card"/></svg>Subscription</a>
+      <div class="me">
+        <div><strong id="me-name"></strong> <span id="me-role" class="badge"></span></div>
+        <a id="password-btn">Change password</a>
+        <a id="logout-btn">Log out</a>
+      </div>
+    </nav>
+
+    <main>
+      <div id="account-banner" class="account-banner hidden"></div>
+
+      <!-- Subscription & workspace -->
+      <section data-panel="billing" class="hidden billing">
+        <div class="dash-head">
+          <div>
+            <h2>Subscription &amp; Workspace</h2>
+            <p class="muted">Your plan, usage and workspace settings.</p>
+          </div>
+        </div>
+        <div class="billing-top">
+          <div class="card panel" id="plan-card"></div>
+          <div class="card panel">
+            <div class="panel-head"><h3>Usage</h3><span class="muted small">this month / plan limit</span></div>
+            <div id="usage-meters"></div>
+          </div>
+        </div>
+        <div class="card panel">
+          <div class="panel-head">
+            <div><h3>Plans</h3><p class="muted small">Choose a plan, pay using the details below, then send us your payment reference. We activate it as soon as we confirm the payment.</p></div>
+          </div>
+          <div id="plan-grid" class="plan-grid"></div>
+        </div>
+        <div class="billing-bottom">
+          <form id="upgrade-form" class="card panel">
+            <h3>Request plan / renewal</h3>
+            <div id="open-request"></div>
+            <label>Plan <select name="planId" required></select></label>
+            <label>Billing period <select name="months">
+              <option value="1">1 month</option><option value="3">3 months</option><option value="6">6 months</option><option value="12">12 months</option>
+            </select></label>
+            <p class="muted small" id="upgrade-total"></p>
+            <label>Payment reference (UPI / bank transaction ID)<input name="reference" placeholder="e.g. UTR 4321…" /></label>
+            <label>Message (optional)<textarea name="message" rows="2"></textarea></label>
+            <button class="btn primary">Send request</button>
+            <span id="upgrade-result" class="muted small"></span>
+          </form>
+          <div class="card panel">
+            <h3>How to pay</h3>
+            <pre class="pay-instructions" id="pay-instructions"></pre>
+            <p class="muted small" id="support-line"></p>
+          </div>
+        </div>
+        <div class="billing-bottom">
+          <form id="workspace-form" class="card panel">
+            <h3>Workspace settings</h3>
+            <label>Company name<input name="name" required maxlength="80" /></label>
+            <label>Webhook URL (optional)<input name="webhookUrl" placeholder="https://your-system.com/whatsapp-webhook" /></label>
+            <p class="muted small">We POST incoming messages, tickets, opt-outs and campaign events here as JSON.</p>
+            <div class="row"><button class="btn primary">Save</button><span id="workspace-result" class="muted small"></span></div>
+          </form>
+          <div class="card panel">
+            <h3>Payment history</h3>
+            <div id="payment-history"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Dashboard -->
+      <section data-panel="dashboard" class="dashboard">
+        <div class="dash-head">
+          <div>
+            <h2 id="dash-greeting">Dashboard</h2>
+            <p class="muted" id="dash-date"></p>
+          </div>
+          <div class="dash-actions">
+            <div class="segmented" id="dash-range" role="group" aria-label="Time range">
+              <button data-days="7" class="active">7 days</button>
+              <button data-days="30">30 days</button>
+              <button data-days="90">90 days</button>
+            </div>
+            <button class="btn" data-goto="send" data-roles="admin,manager">Send message</button>
+            <button class="btn primary" data-goto="campaigns" data-roles="admin,manager">+ New campaign</button>
+            <button class="btn primary" data-goto="tickets" data-roles="agent">Open my tickets</button>
+          </div>
+        </div>
+
+        <div id="dash-kpis" class="kpis"></div>
+
+        <div class="dash-grid">
+          <div class="card panel span-2" data-roles="admin,manager">
+            <div class="panel-head">
+              <div>
+                <h3>Messaging activity</h3>
+                <p class="muted small">Messages per day</p>
+              </div>
+              <div class="panel-tools">
+                <div class="legend" id="activity-legend"></div>
+                <button class="btn sm ghost" id="activity-table-btn" aria-pressed="false">Table</button>
+              </div>
+            </div>
+            <div id="chart-activity" class="chart"></div>
+            <div id="activity-table" class="table-view hidden"></div>
+          </div>
+
+          <div class="card panel">
+            <div class="panel-head"><h3>Tickets by status</h3></div>
+            <div id="chart-status"></div>
+            <div class="mini-stats" id="ticket-mini"></div>
+          </div>
+
+          <div class="card panel">
+            <div class="panel-head">
+              <h3>Needs attention</h3>
+              <button class="btn sm ghost" data-goto="tickets">View all</button>
+            </div>
+            <div id="dash-attention"></div>
+          </div>
+
+          <div class="card panel">
+            <div class="panel-head"><h3>Active tickets by department</h3></div>
+            <div id="chart-depts"></div>
+          </div>
+
+          <div class="card panel" data-roles="admin,manager">
+            <div class="panel-head">
+              <h3>WhatsApp numbers</h3>
+              <button class="btn sm ghost" data-goto="sessions" data-roles="admin">Manage</button>
+            </div>
+            <div id="dash-sessions"></div>
+          </div>
+
+          <div class="card panel span-2" data-roles="admin,manager">
+            <div class="panel-head"><h3>Team performance</h3><p class="muted small" id="team-sub"></p></div>
+            <div id="dash-team"></div>
+          </div>
+
+          <div class="card panel" data-roles="admin,manager">
+            <div class="panel-head">
+              <div>
+                <h3>Recent campaigns</h3>
+                <p class="muted small" id="contacts-sub"></p>
+              </div>
+              <button class="btn sm ghost" data-goto="campaigns">View all</button>
+            </div>
+            <div id="dash-campaigns"></div>
+          </div>
+
+          <div class="card panel span-3" data-roles="admin,manager">
+            <div class="panel-head">
+              <h3>Recent activity</h3>
+              <button class="btn sm ghost" data-goto="logs">Message logs</button>
+            </div>
+            <div id="dash-activity"></div>
+          </div>
+        </div>
+        <div id="viz-tooltip" class="viz-tooltip hidden" role="tooltip"></div>
+      </section>
+
+      <!-- Sessions -->
+      <section data-panel="sessions" class="hidden">
+        <h2>WhatsApp Numbers</h2>
+        <form id="session-form" class="card row">
+          <input name="id" placeholder="Session name, e.g. sales-1" pattern="[a-zA-Z0-9_\-]{1,40}" required />
+          <button class="btn primary">Add number &amp; show QR</button>
+        </form>
+        <p class="muted">Open WhatsApp on your phone → Settings → Linked devices → Link a device, then scan the QR.</p>
+        <div id="sessions" class="grid"></div>
+      </section>
+
+      <!-- Tickets -->
+      <section data-panel="tickets" class="hidden">
+        <div class="row space-between">
+          <h2>Tickets</h2>
+          <button id="new-ticket-btn" class="btn primary">+ New ticket</button>
+        </div>
+
+        <form id="new-ticket-form" class="card stack hidden">
+          <h3>New ticket</h3>
+          <label>WhatsApp number <select name="sessionId" class="session-select" required></select></label>
+          <input name="phone" placeholder="Customer phone with country code" required />
+          <input name="name" placeholder="Customer name" />
+          <input name="subject" placeholder="Subject" required />
+          <select name="priority">
+            <option value="normal">Normal priority</option><option value="low">Low</option>
+            <option value="high">High</option><option value="urgent">Urgent</option>
+          </select>
+          <label>Department <select name="departmentId"></select></label>
+          <textarea name="message" rows="3" placeholder="Details / first message"></textarea>
+          <label class="check"><input type="checkbox" name="sendMessage" /> Send this message to the customer on WhatsApp</label>
+          <label class="check"><input type="checkbox" name="assignToMe" checked /> Assign to me</label>
+          <div class="row"><button class="btn primary">Create ticket</button><button type="button" id="new-ticket-cancel" class="btn">Cancel</button></div>
+        </form>
+
+        <div class="tickets">
+          <div class="ticket-list card">
+            <div class="status-tabs" id="ticket-status-tabs">
+              <button data-status="open,pending" class="active">Active</button>
+              <button data-status="open">Open</button>
+              <button data-status="pending">Pending</button>
+              <button data-status="resolved">Resolved</button>
+              <button data-status="closed">Closed</button>
+              <button data-status="">All</button>
+            </div>
+            <form id="ticket-filters" class="filters">
+              <input name="q" placeholder="Search #, name, phone, subject" />
+              <select name="assignee">
+                <option value="">Anyone</option><option value="me">Assigned to me</option><option value="none">Unassigned</option>
+              </select>
+              <select name="departmentId"><option value="">All departments</option></select>
+              <select name="priority">
+                <option value="">Any priority</option><option value="urgent">Urgent</option><option value="high">High</option>
+                <option value="normal">Normal</option><option value="low">Low</option>
+              </select>
+              <select name="sort"><option value="updated">Latest activity</option><option value="priority">Priority</option></select>
+            </form>
+            <div id="ticket-list"></div>
+          </div>
+
+          <div class="ticket-detail card" id="ticket-detail">
+            <p class="muted empty">Select a ticket to view the conversation.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Chatbot flows -->
+      <section data-panel="flows" class="hidden flows">
+        <div id="flows-list-view">
+          <div class="dash-head">
+            <div>
+              <h2>Chatbot Flows</h2>
+              <p class="muted">Automate WhatsApp conversations: greet customers, answer common questions, collect details and hand over to your team.</p>
+            </div>
+            <button class="btn primary" id="flow-new-btn">+ New flow</button>
+          </div>
+          <div id="flow-templates" class="tpl-grid hidden"></div>
+          <div class="card">
+            <table>
+              <thead><tr><th>Flow</th><th>Starts when</th><th>Numbers</th><th class="n">Started</th><th class="n">Finished</th><th class="n">Handed over</th><th>Live</th><th></th></tr></thead>
+              <tbody id="flows"></tbody>
+            </table>
+          </div>
+          <div class="card how-flows">
+            <h3>How flows work</h3>
+            <ul>
+              <li><strong>Keyword</strong> flows start when a message contains a keyword, even during a chat with your team.</li>
+              <li><strong>First message</strong> and <strong>Any message</strong> flows don't start while the customer has an open ticket, so they never interrupt your team.</li>
+              <li>While a flow is running, the customer's replies go to the bot instead of creating tickets. <strong>Hand to a person</strong> creates a ticket with everything the bot collected.</li>
+              <li>Answers to questions are saved on the contact. You can use them in later messages and campaigns, e.g. <code>{{email}}</code>.</li>
+              <li>Replying STOP always ends the flow and unsubscribes the contact.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div id="flow-editor" class="flow-editor hidden">
+          <div class="fe-top">
+            <button class="btn sm ghost" id="fe-back">← All flows</button>
+            <input id="fe-name" class="fe-name" aria-label="Flow name" />
+            <span id="fe-status" class="muted small"></span>
+            <div class="fe-top-right">
+              <label class="live-toggle"><label class="switch"><input type="checkbox" id="fe-active" /><span></span></label> Live</label>
+              <button class="btn" id="fe-test"><svg class="ic"><use href="#i-play"/></svg> Test</button>
+              <button class="btn primary" id="fe-save">Save</button>
+            </div>
+          </div>
+          <div class="fe-body">
+            <div class="fe-palette" id="fe-palette" aria-label="Add a step"></div>
+            <div class="fe-canvas" id="fe-canvas">
+              <div class="fe-world" id="fe-world">
+                <svg class="fe-edges" id="fe-edges"></svg>
+                <div id="fe-nodes"></div>
+              </div>
+              <div class="fe-zoom">
+                <button class="btn sm" id="fe-zoom-out" title="Zoom out">−</button>
+                <button class="btn sm" id="fe-zoom-fit" title="Fit to screen">Fit</button>
+                <button class="btn sm" id="fe-zoom-in" title="Zoom in">+</button>
+              </div>
+              <div class="fe-hint muted small">Drag steps to move · drag from a ● to connect · click a line to remove it · Delete removes the selected step</div>
+              <div class="fe-add-menu hidden" id="fe-add-menu"></div>
+            </div>
+            <div class="fe-side" id="fe-side"></div>
+          </div>
+          <div class="fe-issues" id="fe-issues"></div>
+        </div>
+      </section>
+
+      <!-- Block risk -->
+      <section data-panel="risk" class="hidden risk">
+        <div class="dash-head">
+          <div>
+            <h2>Block Risk</h2>
+            <p class="muted">How likely each WhatsApp number is to be restricted by WhatsApp, based on the last 7 days, and what to do about it.</p>
+          </div>
+          <button class="btn" id="risk-refresh">Refresh</button>
+        </div>
+
+        <div id="risk-numbers"></div>
+
+        <div class="risk-grid">
+          <form id="protect-form" class="card panel">
+            <div class="panel-head">
+              <div>
+                <h3>Protection settings</h3>
+                <p class="muted small">Applied to all campaigns immediately, including running ones.</p>
+              </div>
+              <button type="button" class="btn sm" id="protect-recommended">Use recommended</button>
+            </div>
+
+            <div class="setting">
+              <div><strong>Delay between messages</strong><p class="muted small">A random pause between each campaign message. Recommended 15–45 seconds.</p></div>
+              <div class="inline-fields"><input name="minDelay" type="number" min="1" max="600" required /> to <input name="maxDelay" type="number" min="1" max="600" required /> sec</div>
+            </div>
+            <div class="setting">
+              <div><strong>Daily limit per number</strong><p class="muted small">Maximum campaign messages per number per day. Recommended 300 or less.</p></div>
+              <div class="inline-fields"><input name="dailyLimit" type="number" min="1" max="10000" required /> / day</div>
+            </div>
+            <div class="setting">
+              <div><strong>Warm-up for new numbers</strong><p class="muted small">Lower limits for young numbers: 20/day in week 1, 50 in week 2, 100 in week 3, 200 in week 4, 350 until day 60.</p></div>
+              <label class="switch"><input type="checkbox" name="warmup" /><span></span></label>
+            </div>
+            <div class="setting">
+              <div><strong>Quiet hours</strong><p class="muted small">Campaigns wait and don't send during these hours (server time).</p></div>
+              <div class="inline-fields">
+                <label class="switch"><input type="checkbox" name="quietEnabled" /><span></span></label>
+                <select name="quietStart"></select> to <select name="quietEnd"></select>
+              </div>
+            </div>
+            <div class="setting">
+              <div><strong>Auto-pause campaigns</strong><p class="muted small">Stop a campaign automatically when too many numbers fail or people reply STOP (checked after 20 messages).</p></div>
+              <div class="inline-fields">
+                <label class="switch"><input type="checkbox" name="autoPause" /><span></span></label>
+                failures &gt; <input name="failRate" type="number" min="1" max="100" required />%
+                · STOP &gt; <input name="optOutRate" type="number" min="1" max="100" required />%
+              </div>
+            </div>
+            <div class="row"><button class="btn primary">Save settings</button><span id="protect-result" class="muted small"></span></div>
+          </form>
+
+          <div class="card panel">
+            <div class="panel-head"><h3>How to avoid getting blocked</h3></div>
+            <ol class="tips">
+              <li><strong>Only message people who said yes.</strong> Collect opt-in (website form, checkout tick box, "Send us a WhatsApp" link). Never use bought or scraped lists.</li>
+              <li><strong>Get customers to message you first.</strong> Chats started by the customer are almost never reported. Put a click-to-chat link and QR code on your website, invoices and shop.</li>
+              <li><strong>Warm up every new number.</strong> Use it for normal chats for a week, then grow volume slowly. Keep warm-up mode on.</li>
+              <li><strong>Make each message personal.</strong> Use {{name}} and {Hi|Hello} variations, and send offers that match the contact's tags.</li>
+              <li><strong>Always offer an exit.</strong> End marketing messages with "Reply STOP to unsubscribe". A STOP is much better than a Block.</li>
+              <li><strong>Start conversations, not broadcasts.</strong> Ask a question or add quick-reply buttons so people answer. Replies build trust.</li>
+              <li><strong>Reply fast.</strong> Answer incoming chats from the Tickets screen; active two-way chats look like a real business.</li>
+              <li><strong>Complete your WhatsApp Business profile</strong> with logo, business name, description, address and website.</li>
+              <li><strong>Keep your main number safe.</strong> Run campaigns from separate numbers and spread volume across them.</li>
+              <li><strong>Logged out unexpectedly?</strong> Stop all campaigns for 48 hours and use the number only for normal chats.</li>
+              <li><strong>For large volumes, use the official WhatsApp Business Cloud API</strong>, which is designed for bulk marketing.</li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      <!-- Users -->
+      <section data-panel="users" class="hidden">
+        <h2>Users</h2>
+        <form id="user-form" class="card stack">
+          <h3 id="user-form-title">Add user</h3>
+          <input type="hidden" name="id" />
+          <input name="name" placeholder="Full name" required />
+          <input name="username" type="email" placeholder="Email (used to log in)" required autocomplete="off" />
+          <input name="password" type="password" placeholder="Password (min 8 characters)" required autocomplete="new-password" />
+          <label>Role
+            <select name="role">
+              <option value="agent">Agent</option>
+              <option value="manager">Manager</option>
+              <option value="admin">Admin</option>
+            </select>
+          </label>
+          <p class="muted" id="role-help"></p>
+          <div>
+            <strong>Departments</strong>
+            <div id="user-depts" class="check-list"></div>
+          </div>
+          <div class="row"><button class="btn primary">Save user</button><button type="button" id="user-cancel" class="btn hidden">Cancel</button></div>
+        </form>
+        <div class="card">
+          <table><thead><tr><th>Name</th><th>Email / login</th><th>Role</th><th>Departments</th><th>Status</th><th>Last login</th><th></th></tr></thead>
+            <tbody id="users"></tbody></table>
+        </div>
+      </section>
+
+      <!-- Departments -->
+      <section data-panel="departments" class="hidden">
+        <h2>Departments</h2>
+        <form id="dept-form" class="card stack" data-roles="admin">
+          <h3 id="dept-form-title">Add department</h3>
+          <input type="hidden" name="id" />
+          <input name="name" placeholder="Name, e.g. Sales, Support, Billing" required />
+          <input name="description" placeholder="Description (optional)" />
+          <div>
+            <strong>WhatsApp numbers</strong>
+            <p class="muted">New chats on these numbers go to this department.</p>
+            <div id="dept-sessions" class="check-list"></div>
+          </div>
+          <label>Keywords
+            <input name="keywords" placeholder="e.g. refund, invoice, payment" />
+          </label>
+          <p class="muted">If a customer's first message contains one of these words, the ticket goes here. Keywords are checked before numbers.</p>
+          <label class="check"><input type="checkbox" name="autoAssign" /> Auto-assign new tickets to the least busy member</label>
+          <label class="check"><input type="checkbox" name="isDefault" /> Default department (gets tickets that match no rule)</label>
+          <div class="row"><button class="btn primary">Save department</button><button type="button" id="dept-cancel" class="btn hidden">Cancel</button></div>
+        </form>
+        <p class="muted" data-roles="admin">Add people to departments on the <strong>Users</strong> page.</p>
+        <div class="card">
+          <table><thead><tr><th>Department</th><th>Numbers</th><th>Keywords</th><th>Members</th><th>Active tickets</th><th>Auto-assign</th><th></th></tr></thead>
+            <tbody id="departments"></tbody></table>
+        </div>
+      </section>
+
+      <!-- Send -->
+      <section data-panel="send" class="hidden">
+        <h2>Send Message</h2>
+        <div class="send-layout">
+          <form id="send-form" class="card stack">
+            <label>From number <select name="sessionId" class="session-select" required></select></label>
+            <label>To
+              <div class="combo">
+                <input name="to" required autocomplete="off" role="combobox" aria-expanded="false" aria-controls="to-suggestions"
+                  placeholder="Search contacts by name, number or tag — or type a number with country code" />
+                <ul id="to-suggestions" class="suggestions hidden" role="listbox"></ul>
+              </div>
+              <span id="to-selected" class="muted small"></span>
+            </label>
+            <label>Message / caption <textarea name="text" rows="4"></textarea></label>
+            <label>Attachment (optional) <input name="file" type="file" /></label>
+            <p class="muted small">With buttons, the attachment must be an image (it becomes the header image).</p>
+            <div>
+              <strong>Buttons</strong> <span class="muted small">(optional, up to 3)</span>
+              <div id="send-buttons" class="button-builder"></div>
+            </div>
+            <input name="footer" placeholder="Footer text under the message (optional, buttons only)" class="hidden" />
+            <button class="btn primary">Send</button>
+            <p id="send-result"></p>
+          </form>
+          <div class="card preview-card">
+            <strong>Preview</strong>
+            <div class="wa-preview" id="send-preview"></div>
+            <p class="muted small">Buttons are unofficial on WhatsApp Web connections and may not appear on every phone.
+              The options are always included as text too, so customers can reply with a number.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Contacts -->
+      <section data-panel="contacts" class="hidden">
+        <h2>Contacts</h2>
+        <div class="two-col">
+          <form id="contact-form" class="card stack">
+            <h3>Add contact</h3>
+            <input name="phone" placeholder="Phone with country code" required />
+            <input name="name" placeholder="Name" />
+            <input name="tags" placeholder="Tags (comma separated)" />
+            <button class="btn primary">Save</button>
+          </form>
+          <form id="import-form" class="card stack">
+            <h3>Import CSV</h3>
+            <p class="muted">Columns: <code>phone,name,tags</code> (tags separated by <code>;</code>)</p>
+            <input name="file" type="file" accept=".csv,text/csv" required />
+            <input name="tags" placeholder="Extra tag for all imported contacts (optional)" />
+            <button class="btn primary">Import</button>
+            <p id="import-result"></p>
+          </form>
+        </div>
+        <div class="card">
+          <div class="row"><input id="contact-search" placeholder="Search name / phone" /></div>
+          <table><thead><tr><th>Phone</th><th>Name</th><th>Tags</th><th>Status</th><th></th></tr></thead>
+            <tbody id="contacts"></tbody></table>
+        </div>
+      </section>
+
+      <!-- Campaigns -->
+      <section data-panel="campaigns" class="hidden">
+        <h2>Campaigns</h2>
+        <form id="campaign-form" class="card stack">
+          <h3>New campaign</h3>
+          <input name="name" placeholder="Campaign name" required />
+          <label>Send from <select name="sessionId" class="session-select" required></select></label>
+          <input name="tags" placeholder="Audience tags (comma separated, empty = all contacts)" />
+          <textarea name="message" rows="5" required placeholder="Hi {{name}}, {check out|don't miss} our Diwali offer! Reply STOP to unsubscribe."></textarea>
+          <p class="muted">Variables: <code>{{name}}</code> <code>{{phone}}</code> · Spintax: <code>{Hi|Hello|Hey}</code> · Always include an opt-out line.</p>
+          <input name="mediaUrl" placeholder="Image / video / PDF URL (optional; must be an image when using buttons)" />
+          <div>
+            <strong>Buttons</strong> <span class="muted small">(optional, up to 3)</span>
+            <div id="campaign-buttons" class="button-builder"></div>
+          </div>
+          <input name="footer" placeholder="Footer text (optional, buttons only)" />
+          <label class="check"><input type="checkbox" name="startNow" /> Start immediately</label>
+          <button class="btn primary">Create campaign</button>
+        </form>
+        <div class="card">
+          <table><thead><tr><th>Name</th><th>From</th><th>Status</th><th>Progress</th><th></th></tr></thead>
+            <tbody id="campaigns"></tbody></table>
+        </div>
+      </section>
+
+      <!-- Logs -->
+      <section data-panel="logs" class="hidden">
+        <h2>Message Logs</h2>
+        <form id="log-filters" class="card filters">
+          <input name="q" placeholder="Search number or text" />
+          <select name="sessionId"><option value="">All numbers</option></select>
+          <select name="direction">
+            <option value="">In &amp; out</option>
+            <option value="out">Outgoing</option>
+            <option value="in">Incoming</option>
+          </select>
+          <select name="status">
+            <option value="">Any status</option>
+            <option value="sent">Sent</option>
+            <option value="failed">Failed</option>
+            <option value="received">Received</option>
+          </select>
+          <select name="campaignId"><option value="">All messages</option></select>
+          <label>From <input name="from" type="date" /></label>
+          <label>To <input name="to" type="date" /></label>
+          <select name="limit">
+            <option value="100">Last 100</option>
+            <option value="300" selected>Last 300</option>
+            <option value="1000">Last 1000</option>
+          </select>
+          <button type="button" id="log-reset" class="btn">Reset</button>
+          <span id="log-count" class="muted"></span>
+        </form>
+        <div class="card">
+          <table><thead><tr><th>Time</th><th>Number</th><th>Dir</th><th>Contact</th><th>Message</th><th>Status</th></tr></thead>
+            <tbody id="logs"></tbody></table>
+        </div>
+      </section>
+
+      <!-- API keys -->
+      <section data-panel="keys" class="hidden">
+        <h2>API Keys</h2>
+        <form id="key-form" class="card row">
+          <input name="name" placeholder="Key name, e.g. CRM integration" required />
+          <button class="btn primary">Generate key</button>
+        </form>
+        <div id="new-key" class="card hidden"></div>
+        <div class="card">
+          <table><thead><tr><th>Name</th><th>Key</th><th>Created</th><th></th></tr></thead>
+            <tbody id="keys"></tbody></table>
+        </div>
+      </section>
+
+      <!-- Docs -->
+      <section data-panel="docs" class="hidden">
+        <h2>API Docs</h2>
+        <div class="card docs">
+          <p>Base URL: <code id="base-url"></code> · Auth header: <code>x-api-key: wak_...</code></p>
+          <h3>Send text</h3>
+<pre>POST /api/messages/text
+{ "sessionId": "sales-1", "to": "919876543210", "text": "Hello!" }</pre>
+          <h3>Send media</h3>
+<pre>POST /api/messages/media
+{ "sessionId": "sales-1", "to": "919876543210",
+  "mediaUrl": "https://example.com/offer.jpg", "caption": "Offer" }
+# or multipart/form-data with fields sessionId, to, caption + file</pre>
+          <h3>Send image + buttons</h3>
+<pre>POST /api/messages/buttons
+{ "sessionId": "sales-1", "to": "919876543210",
+  "text": "Diwali offer: 30% off!", "footer": "Acme Store",
+  "imageUrl": "https://example.com/offer.jpg",
+  "buttons": [
+    { "type": "reply", "title": "See prices", "reply": "Plans start at ₹499/month" },
+    { "type": "url",   "title": "Shop now",   "url": "https://shop.example.com" },
+    { "type": "call",  "title": "Call us",    "phone": "919876543210" }
+  ] }
+# types: reply | url | call | copy ("code"). Max 3 buttons, titles max 20 characters.
+# "reply" is optional: sent automatically when the customer taps the button or replies with its number.
+# multipart/form-data also works: "image" file + "buttons" as a JSON string.
+# Incoming taps arrive in the message.received webhook with "button": { "id", "title" }.</pre>
+          <p class="muted">Campaigns accept the same <code>"buttons"</code> and <code>"footer"</code> fields (image from <code>"mediaUrl"</code>).</p>
+          <h3>Check number</h3>
+<pre>GET /api/check/:sessionId/:phone   →  { "exists": true }</pre>
+          <h3>Sessions</h3>
+<pre>GET    /api/sessions
+POST   /api/sessions            { "id": "sales-1" }
+GET    /api/sessions/:id/qr     (?format=image for PNG)
+DELETE /api/sessions/:id        (?logout=true to unlink device)</pre>
+          <h3>Contacts</h3>
+<pre>GET    /api/contacts?tag=vip&amp;q=rahul
+POST   /api/contacts            { "phone": "...", "name": "...", "tags": ["vip"] }  (or an array)
+POST   /api/contacts/import     multipart "file" (CSV: phone,name,tags)
+PATCH  /api/contacts/:id        { "optedOut": true }
+DELETE /api/contacts/:id</pre>
+          <h3>Campaigns</h3>
+<pre>POST /api/campaigns
+{ "name": "Diwali", "sessionId": "sales-1", "tags": ["vip"],
+  "message": "Hi {{name}} ... Reply STOP to unsubscribe", "mediaUrl": null, "startNow": true }
+# or "phones": ["9198...", ...] instead of tags
+GET  /api/campaigns   |   GET /api/campaigns/:id
+POST /api/campaigns/:id/start   |   POST /api/campaigns/:id/pause</pre>
+          <h3>Tickets</h3>
+<pre>GET    /api/tickets?status=open,pending&amp;priority=&amp;assignee=&lt;name&gt;|none&amp;q=&amp;sort=updated|priority
+GET    /api/tickets/stats
+GET    /api/tickets/:id            (id or ticket number, e.g. 1001) — includes full thread
+POST   /api/tickets                { "sessionId", "phone", "name", "subject", "priority",
+                                     "message", "sendMessage": true, "by": "Agent name" }
+PATCH  /api/tickets/:id            { "status": "open|pending|resolved|closed", "priority",
+                                     "assignee", "subject", "tags", "notify": true, "by" }
+POST   /api/tickets/:id/reply      { "text": "...", "by": "Agent name" }  (or multipart with "file")
+POST   /api/tickets/:id/notes      { "text": "internal note", "by": "Agent name" }
+POST   /api/tickets/:id/read       mark as read
+DELETE /api/tickets/:id</pre>
+          <p class="muted">API keys act with admin rights. Pass <code>"by": "Name"</code> in ticket requests to record who acted.
+          Tickets also accept <code>"departmentId"</code> (omit it to use the routing rules); <code>assignee</code> is a user id.</p>
+          <h3>Users &amp; departments</h3>
+<pre>GET    /api/users/directory        active users (id, name, role, departmentIds)
+GET    /api/users                  (admin)
+POST   /api/users                  { "name", "username", "password", "role": "agent|manager|admin", "departmentIds": [] }
+PATCH  /api/users/:id              { "name", "role", "departmentIds", "active", "password" }
+DELETE /api/users/:id
+GET    /api/departments
+POST   /api/departments            { "name", "description", "sessionIds": [], "keywords": [],
+                                     "autoAssign": true, "isDefault": false }
+PATCH  /api/departments/:id  |  DELETE /api/departments/:id
+POST   /api/auth/login             { "username", "password" } → { "token", "user" }  (Bearer token, 12 h)</pre>
+          <p class="muted">Incoming WhatsApp messages open a ticket automatically, or continue the customer's latest open ticket.
+          Webhook events: <code>ticket.created</code>, <code>ticket.updated</code>, <code>ticket.message</code>.</p>
+          <h3>Logs &amp; stats</h3>
+<pre>GET /api/messages?sessionId=&amp;campaignId=&amp;direction=in|out&amp;status=sent|failed|received
+                 &amp;q=&lt;number or text&gt;&amp;from=&lt;ISO date&gt;&amp;to=&lt;ISO date&gt;&amp;limit=200
+→ { "total": 1234, "messages": [ ... newest first ] }
+GET /api/stats</pre>
+          <h3>Webhook (set WEBHOOK_URL in .env)</h3>
+<pre>POST &lt;WEBHOOK_URL&gt;
+{ "event": "message.received" | "session.connected" | "session.logged_out"
+           | "contact.opted_out" | "campaign.completed",
+  "data": { ... }, "timestamp": "..." }</pre>
+          <h3>cURL example</h3>
+<pre id="curl-example"></pre>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
