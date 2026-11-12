@@ -50,6 +50,12 @@
       <p id="login-error" class="error"></p>
       <p class="muted small" style="text-align:center;margin:0">New here? <a href="/signup">Start a free trial</a></p>
     </form>
+    <div id="hub-login" class="card login-card hidden">
+      <h1 class="brand-name">WA Marketing</h1>
+      <p class="muted">Sign in with your account to open WhatsApp Marketing.</p>
+      <a class="btn primary" href="/auth/hub/login">Sign in with your account</a>
+      <p class="muted small" style="text-align:center;margin:0">New here? <a id="hub-signup" href="/signup">Create an account</a></p>
+    </div>
   </section>
 
   <!-- App -->
@@ -74,7 +80,7 @@
       <a data-tab="billing" data-roles="admin"><svg class="ic"><use href="#i-card"/></svg>Subscription</a>
       <div class="me">
         <div><strong id="me-name"></strong> <span id="me-role" class="badge"></span></div>
-        <a id="password-btn">Change password</a>
+        <a id="password-btn" class="local-only">Change password</a>
         <a id="logout-btn">Log out</a>
       </div>
     </nav>
@@ -128,7 +134,18 @@
             <h3>Workspace settings</h3>
             <label>Company name<input name="name" required maxlength="80" /></label>
             <label>Webhook URL (optional)<input name="webhookUrl" placeholder="https://your-system.com/whatsapp-webhook" /></label>
-            <p class="muted small">We POST incoming messages, tickets, opt-outs and campaign events here as JSON.</p>
+            <p class="muted small">We POST incoming messages, sent messages, tickets, opt-outs and campaign events here as JSON.
+              Failed deliveries are retried for up to 15 hours.</p>
+            <label>Webhook signing secret
+              <span class="row" style="margin:0;gap:6px">
+                <input id="webhook-secret" readonly class="mono" style="flex:1" />
+                <button type="button" class="btn" id="webhook-secret-copy">Copy</button>
+                <button type="button" class="btn" id="webhook-secret-regen">Regenerate</button>
+              </span>
+            </label>
+            <p class="muted small">Each request carries <code>X-Suite-Signature: v1=HMAC-SHA256(secret, "&lt;X-Suite-Timestamp&gt;.&lt;raw body&gt;")</code>
+              and <code>X-Suite-Event-Id</code>. Verify the signature and ignore event ids you have already processed.</p>
+            <p class="muted small" id="webhook-status"></p>
             <div class="row"><button class="btn primary">Save</button><span id="workspace-result" class="muted small"></span></div>
           </form>
           <div class="card panel">
@@ -430,6 +447,8 @@
       <!-- Users -->
       <section data-panel="users" class="hidden">
         <h2>Users</h2>
+        <p class="muted hub-only">Members, roles and passwords are managed in your account. People appear here after they
+          first sign in; use <b>Edit</b> to choose their departments.</p>
         <form id="user-form" class="card stack">
           <h3 id="user-form-title">Add user</h3>
           <input type="hidden" name="id" />

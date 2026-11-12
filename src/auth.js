@@ -48,7 +48,7 @@ function noteFailure(key) {
 }
 
 /* ---------- workspace users ---------- */
-function issueToken(tenantId, userId, extra = {}) {
+export function issueToken(tenantId, userId, extra = {}) {
   const secret = crypto.randomBytes(32).toString('hex');
   db.authTokens = db.authTokens.filter((t) => t.exp > Date.now());
   db.authTokens.push({ hash: sha256(secret), userId, exp: Date.now() + TOKEN_TTL_MS, ...extra });

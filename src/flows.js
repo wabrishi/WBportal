@@ -318,7 +318,12 @@ function liveIO(flow, sessionId, phone) {
       if (n.action === 'remove_tag') c.tags = (c.tags || []).filter((t) => t !== String(n.value).trim());
       if (n.action === 'set_variable') { run.vars[n.variable] = fill(n.value, run.vars); c.fields = { ...c.fields, [n.variable]: run.vars[n.variable] }; }
       if (n.action === 'opt_in') { c.optedOut = false; c.optedInAt = now(); }
-      if (n.action === 'webhook') emitWebhook('flow.action', { flowId: flow.id, flow: flow.name, sessionId, phone, value: fill(n.value, run.vars), variables: run.vars });
+      if (n.action === 'webhook') {
+        emitWebhook('flow.action', {
+          flowId: flow.id, flow: flow.name, sessionId, phone, value: fill(n.value, run.vars), variables: run.vars,
+          ...(run.pushName ? { pushName: run.pushName } : {}),
+        });
+      }
       save();
     },
     async saveField(key, value, run) {
@@ -395,6 +400,7 @@ export async function handleFlowMessage(sessionId, phone, { text, buttonId, push
       const kw = pickTrigger(sessionId, phone, text);
       if (kw && kw.trigger.type === 'keyword' && kw.id !== flow.id) { delete db.flowRuns[key]; run = null; }
       else {
+        if (pushName) run.pushName = pushName;
         if (run.waiting === 'delay') return true; // the bot will continue by itself
         run.updatedAt = now();
         await onInput(flow, run, { text, buttonId }, liveIO(flow, sessionId, phone));
@@ -408,6 +414,7 @@ export async function handleFlowMessage(sessionId, phone, { text, buttonId, push
   const contact = db.contacts.find((c) => c.phone === phone);
   run = {
     flowId: flow.id, nodeId: 'start', waiting: null, retries: 0, startedAt: now(), updatedAt: now(),
+    ...(pushName ? { pushName } : {}),
     vars: { ...(contact?.fields || {}), name: contact?.name || pushName || '', phone, first_message: text },
   };
   db.flowRuns[key] = run;

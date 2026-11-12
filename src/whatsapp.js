@@ -254,15 +254,27 @@ export async function sendText(sessionId, phone, text) {
   return sock.sendMessage(toJid(phone), { text });
 }
 
+/* ---------- fewer threads / processes for media (shared hosting counts every thread) ---------- */
+// Baileys makes image thumbnails with sharp (libvips), which may use one thread per CPU core of the
+// server. One is plenty for 32 px thumbnails. sharp is loaded only when the first image is sent.
+let sharpLimited = null;
+const limitImageThreads = () => (sharpLimited ||= import('sharp')
+  .then(({ default: sharp }) => { sharp.concurrency(1); sharp.cache(false); })
+  .catch(() => {}));
+// For videos Baileys starts an `ffmpeg` shell process per message just for a thumbnail (and on hosts
+// without ffmpeg it fails anyway). Skipped unless VIDEO_THUMBNAILS=true; videos still send normally.
+const videoThumb = () => (process.env.VIDEO_THUMBNAILS === 'true' ? {} : { jpegThumbnail: '' });
+
 // media: { url } or { buffer }, plus mimetype / fileName
 export async function sendMedia(sessionId, phone, { url, buffer, mimetype = '', fileName, caption }) {
   const sock = requireConnected(sessionId);
   const src = buffer || { url };
   let content;
   if (mimetype.startsWith('image/') || (!mimetype && /\.(png|jpe?g|webp)$/i.test(url || ''))) {
+    await limitImageThreads();
     content = { image: src, caption };
   } else if (mimetype.startsWith('video/') || (!mimetype && /\.mp4$/i.test(url || ''))) {
-    content = { video: src, caption };
+    content = { video: src, caption, ...videoThumb() };
   } else if (mimetype.startsWith('audio/')) {
     content = { audio: src, mimetype };
   } else {
@@ -288,6 +300,7 @@ export async function sendButtons(sessionId, phone, { text, footer, image, butto
 
   const header = { title: '', subtitle: '', hasMediaAttachment: false };
   if (image) {
+    await limitImageThreads();
     const media = await prepareWAMessageMedia(
       { image: image.buffer || { url: image.url } },
       { upload: sock.waUploadToServer, logger },

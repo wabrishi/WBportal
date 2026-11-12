@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
+import { emitMessageSent, webhookSecret, newWebhookSecret, outboxStats } from './webhook.js';
+import { hubMode, hubUrl, hubHome } from './suite.js';
 import { db, save, uid, now, normalizePhone, logMessage, runAsTenant } from './store.js';
 import {
   platform, savePlatform, findTenant, tenantSummary, createTenant, publicPlans, usage, assertAllowed,
@@ -51,11 +53,13 @@ const STAFF = requireRole('admin', 'manager'); // admins and managers
 r.get('/public/info', h(() => ({
   brandName: platform.settings.brandName, currency: platform.settings.currency, trialDays: platform.settings.trialDays,
   supportEmail: platform.settings.supportEmail, plans: publicPlans(),
+  authMode: hubMode() ? 'hub' : 'local', hubUrl: hubMode() ? hubUrl() : null,
 })));
 
 // max 5 signups per IP per hour
 const signups = new Map();
 r.post('/public/signup', h((req) => {
+  if (hubMode()) throw Object.assign(new Error(`Sign up at ${hubUrl()}/signup`), { status: 404 });
   const ip = req.ip;
   const recent = (signups.get(ip) || []).filter((t) => Date.now() - t < 3600000);
   if (recent.length >= 5) throw Object.assign(new Error('Too many signups from your network. Try again later.'), { status: 429 });
@@ -67,7 +71,10 @@ r.post('/public/signup', h((req) => {
   return login(email, password, ip);
 }));
 
-r.post('/auth/login', h((req) => login(req.body?.username || req.body?.email, req.body?.password, req.ip)));
+r.post('/auth/login', h((req) => {
+  if (hubMode()) throw Object.assign(new Error('Use "Sign in with your account" (Suite Hub).'), { status: 403 });
+  return login(req.body?.username || req.body?.email, req.body?.password, req.ip);
+}));
 
 /* Everything below needs a signed-in user or an API key, and runs inside that user's workspace */
 r.use(requireAuth);
@@ -77,8 +84,10 @@ r.post('/auth/logout', h((req) => {
 }));
 r.get('/auth/me', h((req) => ({
   ...req.user, tenant: tenantSummary(findTenant(req.tenantId)), brandName: platform.settings.brandName,
+  authMode: hubMode() ? 'hub' : 'local', hubUrl: hubMode() ? hubUrl() : null,
 })));
 r.post('/auth/password', h((req) => {
+  if (hubMode()) throw bad('Change your password in your account (Suite Hub).');
   const u = findUser(req.user.id);
   if (!u) throw bad('Not available for API keys');
   const { currentPassword, newPassword } = req.body || {};
@@ -100,6 +109,7 @@ r.get('/users/directory', h(() => db.users.filter((u) => u.active)
 
 r.get('/users', ADMIN, h(() => db.users.map(publicUser)));
 r.post('/users', ADMIN, h((req) => {
+  if (hubMode()) throw bad('Invite members in your account (Suite Hub). They appear here when they first sign in.');
   const { name, username, email, password, role = 'agent', departmentIds } = req.body || {};
   const login = String(email || username || '').trim().toLowerCase();
   if (!String(name || '').trim()) throw bad('Name is required');
@@ -120,7 +130,9 @@ r.post('/users', ADMIN, h((req) => {
 r.patch('/users/:id', ADMIN, h((req) => {
   const u = findUser(req.params.id);
   if (!u) throw notFound('User');
-  const b = req.body || {};
+  const b = { ...(req.body || {}) };
+  // Hub mode: only departments are managed here; members, roles and passwords are managed in your account (suite hub).
+  if (hubMode()) for (const k of ['name', 'role', 'active', 'password']) delete b[k];
   const losesAdmin = u.role === 'admin' && ((b.role && b.role !== 'admin') || b.active === false);
   if (losesAdmin && activeAdmins().length <= 1) throw bad('There must be at least one active admin');
   if (b.name !== undefined) u.name = String(b.name).trim() || u.name;
@@ -145,6 +157,7 @@ r.patch('/users/:id', ADMIN, h((req) => {
 r.delete('/users/:id', ADMIN, h((req) => {
   const u = findUser(req.params.id);
   if (!u) throw notFound('User');
+  if (hubMode()) throw bad('Remove members in your account (Suite Hub).');
   if (u.id === req.user.id) throw bad("You can't delete your own account");
   if (u.role === 'admin' && activeAdmins().length <= 1) throw bad('There must be at least one active admin');
   for (const t of db.tickets) if (t.assignee === u.id) t.assignee = '';
@@ -252,6 +265,7 @@ r.post('/messages/text', h(async (req) => {
   try {
     const res = await sendText(sessionId, phone, text);
     logMessage({ sessionId, to: phone, text, status: 'sent', waId: res?.key?.id });
+    if (!req.user.apiKey) emitMessageSent({ sessionId, to: phone, text, messageId: res?.key?.id, via: 'dashboard' });
     return { ok: true, messageId: res?.key?.id };
   } catch (e) {
     logMessage({ sessionId, to: phone, text, status: 'failed', error: e.message });
@@ -270,7 +284,9 @@ r.post('/messages/media', upload.single('file'), h(async (req) => {
     : { url: mediaUrl, mimetype, fileName, caption };
   try {
     const res = await sendMedia(sessionId, phone, media);
-    logMessage({ sessionId, to: phone, text: caption || `[media] ${media.fileName || mediaUrl}`, status: 'sent', waId: res?.key?.id });
+    const label = caption || `[media] ${media.fileName || mediaUrl}`;
+    logMessage({ sessionId, to: phone, text: label, status: 'sent', waId: res?.key?.id });
+    if (!req.user.apiKey) emitMessageSent({ sessionId, to: phone, text: label, messageId: res?.key?.id, via: 'dashboard' });
     return { ok: true, messageId: res?.key?.id };
   } catch (e) {
     logMessage({ sessionId, to: phone, text: caption || '[media]', status: 'failed', error: e.message });
@@ -292,6 +308,7 @@ r.post('/messages/buttons', upload.single('image'), h(async (req) => {
   try {
     const res = await sendButtons(sessionId, phone, { text, footer, image, buttons });
     logMessage({ sessionId, to: phone, text: label, status: 'sent', waId: res?.key?.id });
+    if (!req.user.apiKey) emitMessageSent({ sessionId, to: phone, text: label, messageId: res?.key?.id, via: 'dashboard' });
     return { ok: true, messageId: res?.key?.id };
   } catch (e) {
     logMessage({ sessionId, to: phone, text: label, status: 'failed', error: e.message });
@@ -486,6 +503,9 @@ r.get('/workspace', ADMIN, h((req) => {
     tenant: tenantSummary(t),
     usage: usage(),
     webhookUrl: db.workspace?.webhookUrl || '',
+    webhookSecret: webhookSecret(),
+    webhookStatus: outboxStats(),
+    hub: hubMode() ? { url: hubHome() } : null, // subscription + billing are managed in the Hub
     plans: publicPlans(),
     currency: platform.settings.currency,
     paymentInstructions: platform.settings.paymentInstructions,
@@ -497,8 +517,10 @@ r.get('/workspace', ADMIN, h((req) => {
 }));
 r.put('/workspace', ADMIN, h((req) => {
   const { name, webhookUrl } = req.body || {};
-  if (webhookUrl && !/^https:\/\/\S+$/i.test(webhookUrl)) throw bad('Webhook URL must start with https://');
-  if (name !== undefined) {
+  // local development only (e.g. Lead Manager on http://localhost:3010): ALLOW_HTTP_WEBHOOKS=true
+  const devHttp = process.env.ALLOW_HTTP_WEBHOOKS === 'true' && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/\S*$/i.test(webhookUrl || '');
+  if (webhookUrl && !devHttp && !/^https:\/\/\S+$/i.test(webhookUrl)) throw bad('Webhook URL must start with https://');
+  if (name !== undefined && !hubMode()) { // in hub mode the name comes from the Hub
     if (!String(name).trim()) throw bad('Company name is required');
     findTenant(req.tenantId).name = String(name).trim().slice(0, 80);
     savePlatform();
@@ -506,7 +528,15 @@ r.put('/workspace', ADMIN, h((req) => {
   if (webhookUrl !== undefined) db.workspace = { ...db.workspace, webhookUrl: String(webhookUrl).trim() };
   save();
 }));
+// New signing secret for webhooks (the old one stops working immediately, also for pending retries).
+r.post('/workspace/webhook-secret', ADMIN, h((req) => {
+  db.workspace = { ...db.workspace, webhookSecret: newWebhookSecret() };
+  save();
+  audit(req.user.username, 'tenant.webhook_secret_regenerated', { tenantId: req.tenantId });
+  return { webhookSecret: db.workspace.webhookSecret };
+}));
 r.post('/workspace/upgrade-request', ADMIN, h((req) => {
+  if (hubMode()) throw bad(`Change your plan in your account: ${hubHome()}`);
   const r2 = createUpgradeRequest(req.tenantId, req.body || {}, req.user);
   audit(req.user.username, 'tenant.upgrade_request', { tenantId: req.tenantId, planId: r2.planId });
   return r2;

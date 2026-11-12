@@ -527,3 +527,10 @@ label.inline { flex-direction: row; align-items: center; gap: 6px; font-weight: 
   main { padding: 16px; }
   .two-col { grid-template-columns: 1fr; }
 }
+
+/* AUTH_MODE=hub: sign-in, members and billing live in the Suite Hub */
+.hub-only { display: none; }
+body.hub-mode .hub-only { display: block; }
+body.hub-mode .local-only { display: none !important; }
+
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; }

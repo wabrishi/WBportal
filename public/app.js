@@ -33,6 +33,17 @@ async function api(path, { method = 'GET', body, form } = {}) {
 }
 
 /* ---------- Auth ---------- */
+// AUTH_MODE=hub: "Sign in with your account" (Suite Hub) instead of the email/password form
+let authInfo = { authMode: 'local' };
+const isHub = () => authInfo.authMode === 'hub';
+async function loadAuthMode() {
+  authInfo = await fetch('/api/public/info').then((r) => r.json()).catch(() => authInfo);
+  document.body.classList.toggle('hub-mode', isHub());
+  $('#login-form').classList.toggle('hidden', isHub());
+  $('#hub-login').classList.toggle('hidden', !isHub());
+  if (isHub() && authInfo.hubUrl) $('#hub-signup').href = `${authInfo.hubUrl}/signup`;
+}
+const authReady = loadAuthMode();
 function showLogin() {
   token = '';
   me = null;
@@ -63,8 +74,10 @@ async function showApp() {
   $('#app-view').classList.remove('hidden');
   switchTab(currentTab);
   clearInterval(pollTimer);
-  pollTimer = setInterval(() => refresh(currentTab), 3000);
+  // no polling while the tab is in the background (saves server processes on shared hosting)
+  pollTimer = setInterval(() => { if (!document.hidden) refresh(currentTab); }, 3000);
 }
+document.addEventListener('visibilitychange', () => { if (!document.hidden && me) refresh(currentTab); });
 async function loadPeople() {
   [directory, departments] = await Promise.all([api('/users/directory'), api('/departments')]);
 }
@@ -115,6 +128,7 @@ async function loadBilling(force = false) {
     trial: `Free trial · ${t.daysLeft} day${t.daysLeft === 1 ? '' : 's'} left`, active: `Active · renews in ${t.daysLeft} days`,
     grace: 'Payment due — renew now', expired: 'Expired', suspended: 'Suspended',
   }[t.state] || t.state;
+  if (billing.hub) return renderHubBilling(t, usage);
   $('#plan-card').innerHTML = `
     <div class="panel-head"><h3>Current plan</h3><span class="badge ${t.state === 'expired' ? 'failed' : t.state === 'active' ? 'sent' : 'pending'}">${esc(stateText)}</span></div>
     <div class="plan-now"><b>${esc(t.plan?.name || '—')}</b><span>${currency}${(t.plan?.price || 0).toLocaleString()} / month</span></div>
@@ -148,10 +162,50 @@ async function loadBilling(force = false) {
   $('#support-line').innerHTML = billing.supportEmail ? `Questions? Email <a href="mailto:${esc(billing.supportEmail)}">${esc(billing.supportEmail)}</a>` : '';
   const wf = $('#workspace-form');
   if (!wf.contains(document.activeElement)) { wf.name.value = t.name; wf.webhookUrl.value = billing.webhookUrl; }
+  $('#webhook-secret').value = billing.webhookSecret || '';
+  const ws = billing.webhookStatus || {};
+  $('#webhook-status').textContent = !billing.webhookUrl ? ''
+    : ws.pending || ws.failed
+      ? `Deliveries: ${ws.pending} waiting to retry, ${ws.failed} given up${ws.lastError ? ` (last error: ${ws.lastError})` : ''}.`
+      : 'Deliveries: all delivered ✓';
   $('#payment-history').innerHTML = billing.payments.length
     ? `<table><thead><tr><th>Date</th><th>Plan</th><th class="n">Amount</th><th>Reference</th></tr></thead><tbody>${billing.payments.map((p) => `
       <tr><td>${new Date(p.at).toLocaleDateString()}</td><td>${esc(p.planName)} · ${p.months}m</td><td class="n">${currency}${p.amount.toLocaleString()}</td><td class="small">${esc(p.method)} ${esc(p.reference)}</td></tr>`).join('')}</tbody></table>`
     : '<div class="empty-state">No payments yet.</div>';
+}
+// Hub mode: plan and billing are managed in the Hub; show the entitlement and usage only.
+function renderHubBilling(t, usage) {
+  const stateText = {
+    trial: `Free trial · ${t.daysLeft} day${t.daysLeft === 1 ? '' : 's'} left`, active: `Active · ${t.daysLeft} days left`,
+    grace: 'Payment due — renew now', expired: 'Expired', suspended: 'Suspended', not_enabled: 'Not enabled',
+  }[t.state] || t.state;
+  $('#plan-card').innerHTML = `
+    <div class="panel-head"><h3>Your plan</h3><span class="badge ${t.canUse ? 'sent' : 'failed'}">${esc(stateText)}</span></div>
+    <div class="plan-now"><b>${esc(t.plan?.name || '—')}</b></div>
+    <div class="muted small">${t.state === 'trial' && t.trialEndsAt ? `Trial ends ${fmt(t.trialEndsAt)}` : t.paidUntil ? `Paid until ${new Date(t.paidUntil).toLocaleDateString()}` : ''}</div>
+    ${t.message ? `<p class="error small">${esc(t.message)}</p>` : ''}
+    <p><a class="btn primary" href="${esc(billing.hub.url)}" target="_blank" rel="noopener">Manage subscription &amp; billing</a></p>`;
+  $('#usage-meters').innerHTML = Object.entries(USAGE_LABELS).map(([k, label]) => {
+    const limit = t.plan?.limits?.[k] ?? -1;
+    const used = usage[k] || 0;
+    const pctUsed = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+    return `<div class="usage-row"><div class="row space-between" style="margin:0"><span>${label}</span><span><b>${used.toLocaleString()}</b> / ${fmtLimit(limit)}</span></div>
+      <div class="meter ${pctUsed >= 95 ? 'crit' : pctUsed >= 80 ? 'warn' : ''}"><div style="width:${limit < 0 ? 0 : pctUsed}%"></div></div></div>`;
+  }).join('');
+  // plans, plan requests, payment instructions and history live in the Hub
+  $('#plan-grid').closest('.card').classList.add('hidden');
+  $('#upgrade-form').closest('.billing-bottom').classList.add('hidden');
+  $('#payment-history').closest('.card').classList.add('hidden');
+  const wf = $('#workspace-form');
+  wf.name.readOnly = true;
+  wf.name.title = 'The workspace name is managed in your account';
+  if (!wf.contains(document.activeElement)) { wf.name.value = t.name; wf.webhookUrl.value = billing.webhookUrl; }
+  $('#webhook-secret').value = billing.webhookSecret || '';
+  const ws = billing.webhookStatus || {};
+  $('#webhook-status').textContent = !billing.webhookUrl ? ''
+    : ws.pending || ws.failed
+      ? `Deliveries: ${ws.pending} waiting to retry, ${ws.failed} given up${ws.lastError ? ` (last error: ${ws.lastError})` : ''}.`
+      : 'Deliveries: all delivered ✓';
 }
 function updateUpgradeTotal() {
   const f = $('#upgrade-form');
@@ -179,6 +233,19 @@ $('#upgrade-form').addEventListener('submit', async (e) => {
     f.reference.value = ''; f.message.value = '';
     loadBilling(true);
   } catch (err) { $('#upgrade-result').textContent = err.message; }
+});
+$('#webhook-secret-copy').addEventListener('click', async () => {
+  const v = $('#webhook-secret').value;
+  try { await navigator.clipboard.writeText(v); $('#workspace-result').textContent = 'Secret copied ✓'; }
+  catch { $('#webhook-secret').select(); }
+});
+$('#webhook-secret-regen').addEventListener('click', async () => {
+  if (!confirm('Create a new webhook secret? The old one stops working immediately, so update your receiving system right away.')) return;
+  try {
+    const r = await api('/workspace/webhook-secret', { method: 'POST' });
+    $('#webhook-secret').value = r.webhookSecret;
+    $('#workspace-result').textContent = 'New secret created ✓';
+  } catch (err) { $('#workspace-result').textContent = err.message; }
 });
 $('#workspace-form').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -216,6 +283,7 @@ $('#password-btn').addEventListener('click', async () => {
 $('#logout-btn').addEventListener('click', async () => {
   await api('/auth/logout', { method: 'POST' }).catch(() => {});
   showLogin();
+  if (me?.authMode === 'hub' || isHub()) location.href = `${authInfo.hubUrl || me?.hubUrl}/logout`; // ends the suite session too
 });
 
 /* ---------- Tabs ---------- */
@@ -1279,7 +1347,7 @@ function renderSide() {
       body = `<label>Action ${sel('data-f="action" data-rerender="1"', Object.entries(ACTIONS), n.action)}</label>
         ${n.action === 'set_variable' ? `<label>Variable<input data-f="variable" value="${esc(n.variable || '')}" placeholder="vip" /></label>` : ''}
         ${n.action === 'opt_in' ? '<p class="help">Use after the customer agrees to receive offers, so they can be included in campaigns.</p>' : ''}
-        ${n.action === 'webhook' ? '<p class="help">POSTs a "flow.action" event with all collected variables to the WEBHOOK_URL in .env.</p>' : ''}
+        ${n.action === 'webhook' ? '<p class="help">POSTs a "flow.action" event with all collected variables to the Webhook URL set on the Subscription page.</p>' : ''}
         ${['add_tag', 'remove_tag', 'set_variable', 'webhook'].includes(n.action)
           ? `<label>${n.action === 'webhook' ? 'Label (optional)' : n.action === 'set_variable' ? 'Value' : 'Tag'}<input data-f="value" value="${esc(n.value || '')}" placeholder="${n.action === 'set_variable' ? 'yes or {{choice}}' : 'lead'}" /></label>` : ''}
         ${nextField('Then go to', n, id, 'next')}`;
@@ -1588,6 +1656,7 @@ function resetUserForm() {
   f.password.placeholder = 'Password (min 8 characters)';
   $('#user-form-title').textContent = 'Add user';
   $('#user-cancel').classList.add('hidden');
+  f.classList.toggle('hidden', isHub()); // hub mode: members are invited in the Hub; the form only edits departments
   $('#user-depts').innerHTML = checkboxes('departmentIds', departments.map((d) => [d.id, d.name]));
   $('#role-help').textContent = ROLE_HELP[f.role.value];
 }
@@ -1609,8 +1678,8 @@ async function loadUsers() {
     <td>${u.active ? '<span class="badge sent">active</span>' : '<span class="badge failed">disabled</span>'}</td>
     <td class="muted">${u.lastLoginAt ? fmt(u.lastLoginAt) : 'never'}</td>
     <td><button class="btn sm" data-edit="${u.id}">Edit</button>
-      ${u.id !== me.id ? `<button class="btn sm" data-toggle="${u.id}" data-active="${u.active ? 1 : 0}">${u.active ? 'Disable' : 'Enable'}</button>
-      <button class="btn sm danger" data-del="${u.id}">Delete</button>` : ''}</td></tr>`).join('');
+      ${u.id !== me.id ? `<button class="btn sm local-only" data-toggle="${u.id}" data-active="${u.active ? 1 : 0}">${u.active ? 'Disable' : 'Enable'}</button>
+      <button class="btn sm danger local-only" data-del="${u.id}">Delete</button>` : ''}</td></tr>`).join('');
   $('#users').dataset.json = JSON.stringify(users);
 }
 
@@ -1632,6 +1701,9 @@ $('#users').addEventListener('click', async (e) => {
       $('#user-depts').innerHTML = checkboxes('departmentIds', departments.map((d) => [d.id, d.name]), u.departmentIds || []);
       $('#user-form-title').textContent = `Edit ${u.name}`;
       $('#user-cancel').classList.remove('hidden');
+      f.classList.remove('hidden');
+      for (const el of [f.name, f.role]) el.disabled = isHub(); // managed in the Hub
+      f.password.classList.toggle('hidden', isHub());
       f.scrollIntoView({ behavior: 'smooth' });
     }
     if (toggle) await api(`/users/${toggle}`, { method: 'PATCH', body: { active: active !== '1' } });

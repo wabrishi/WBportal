@@ -103,10 +103,59 @@ logins, so numbers stay linked); the files are left in place as a backup. `Runti
 
 Logs: website dashboard → **Runtime logs**. Restart: dashboard → **Running** → **Restart**.
 
-**Run one instance only.** The app keeps data in memory and saves changes to MySQL within ~1 second;
-two copies of the app on the same database would overwrite each other's changes.
+**Process limit ("max processes").** Hostinger counts every process **and thread** towards the plan's
+limit (Business: 120, shared by all sites on the plan). To keep this app small:
+- In **Environment variables** add `UV_THREADPOOL_SIZE` = `2` and `NODE_OPTIONS` = `--v8-pool-size=1`. This cuts
+  Node's own threads by about 5 per copy. These two only work as hPanel variables (they must be set
+  before Node starts), not in `.env`.
+- Use one host name. Hostinger starts a separate copy of the app for `domain.com` and `www.domain.com`.
+  Set `APP_URL` (e.g. `https://wa.yourdomain.com`): a copy started for any other host name only redirects
+  there (no data, WhatsApp or background jobs). Better still, use a subdomain without `www`, or redirect
+  `www` in hPanel → **Domains → Redirects**, so that copy never starts.
+- Only one copy per database is ever active (MySQL lock). An extra copy waits and takes over if the active
+  one stops, so WhatsApp numbers are never connected twice.
+- Video thumbnails (an `ffmpeg` process per video sent) are off. Set `VIDEO_THUMBNAILS=true` to turn them
+  back on if your server has ffmpeg.
+- Other apps on the same plan (MyGST, Lead Manager, the Hub) use the same budget: give them the same two
+  variables. Remove apps you don't use, and if you hit the limit use hPanel → **Resource Usage → Stop
+  running processes**.
 
 ---
+
+## Connecting to the Suite Hub (single sign-on + subscriptions)
+
+Optional. With `AUTH_MODE=hub`, customers sign in with their suite account ("Sign in with your account"),
+and their WhatsApp plan, limits and billing come from the Hub (`accounts.<domain>`). Without it, the app
+works standalone as described above. Contract: `LeadManager/docs/HUB-INTEGRATION.md`.
+
+1. In the Hub's env set `WA_URL=https://wa.yourdomain.com`, `WA_EVENTS_URL=https://wa.yourdomain.com/api/suite/events`
+   and `WA_EVENTS_SECRET=<random>`.
+2. Hub → **Admin → Apps & SSO → Register app** for WhatsApp. Redirect URI: `https://wa.yourdomain.com/auth/hub/callback`.
+   Copy the client id and secret (the secret is shown once).
+3. In this app's environment variables add:
+   `AUTH_MODE=hub`, `HUB_URL=https://accounts.yourdomain.com`, `HUB_CLIENT_ID`, `HUB_CLIENT_SECRET`,
+   `SUITE_EVENTS_SECRET` (= the Hub's `WA_EVENTS_SECRET`) and `APP_URL=https://wa.yourdomain.com`. Redeploy.
+   The app refuses to start if one of the first five is missing (see **Runtime logs**).
+4. **Existing customers** (from before the Hub): in the Hub, open the customer's page and set their WhatsApp
+   tenant link to the workspace id shown in `/admin` (e.g. `acme-ltd`). On their next sign-in they land in their
+   existing workspace with all data, numbers and API keys. Users are matched by email.
+
+What changes in hub mode:
+- `/app` shows **Sign in with your account**; email/password login and `/signup` go to the Hub. Sign out also
+  signs out of the suite.
+- A workspace is created on its first sign-in. Roles follow the Hub: OWNER → admin, MANAGER → manager,
+  MEMBER → agent. Members are invited, changed and removed in the Hub; here you only assign departments.
+- Plan limits and the trial/paid period come from the Hub's subscription. After it ends (plus grace), the
+  workspace is read-only: sending, campaigns and chatbots pause (numbers are disconnected when the Hub reports
+  the change, and reconnect when it is renewed). A workspace
+  without the WhatsApp module can't sign in, and its API keys stop working until the module is enabled.
+- The Hub's events (`subscription.updated`, `workspace.*`, `member.*`) arrive signed at `/api/suite/events`
+  and apply immediately (renewals, plan changes, suspensions, removed members).
+- The **Subscription** page shows the plan and usage, with a link to billing in the Hub. Plans, payments and
+  plan requests in `/admin` are no longer used for these workspaces.
+
+Development: run the Hub on `:3020` and this app with `PORT=3001`, `APP_URL=http://localhost:3001` and
+`HUB_URL=http://localhost:3020`.
 
 ## After deploying
 
@@ -137,6 +186,12 @@ host allows remote MySQL connections: hPanel → Databases → **Remote MySQL**.
 | `CRON_KEY` | Enables `/api/cron?key=…` (wake-up + reconnect numbers) |
 | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | MySQL/MariaDB database. When `DB_NAME` is set, everything is stored there (tables created automatically). `DATABASE_URL=mysql://user:pass@host:3306/db` also works |
 | `DB_CONNECTION_LIMIT` | Max MySQL connections (default 5) |
+| `AUTH_MODE` | `local` (default) or `hub` (sign-in and subscriptions from the Suite Hub, see above) |
+| `HUB_URL`, `HUB_CLIENT_ID`, `HUB_CLIENT_SECRET`, `SUITE_EVENTS_SECRET`, `APP_URL` | Suite Hub connection (hub mode) |
+| `ALLOW_HTTP_WEBHOOKS` | Development only: allow `http://localhost` webhook URLs |
+| `UV_THREADPOOL_SIZE`, `NODE_OPTIONS` | Fewer threads: `2` and `--v8-pool-size=1` (host environment only, see "Process limit") |
+| `APP_URL` | Public URL of the app. Also makes copies started for other host names (e.g. `www.`) redirect there |
+| `VIDEO_THUMBNAILS` | `true` to generate video thumbnails with ffmpeg (off: saves a process per video) |
 | `STORAGE_DIR` | Without MySQL: where data + WhatsApp logins are stored as files (automatic if empty). With MySQL: only read once, to import existing data |
 | `TRUST_PROXY` | Reverse-proxy hops for real visitor IPs (automatic; Docker/Traefik: `1`) |
 | `PORT` | Port to listen on (default 3000). A value set by the host wins over `.env`. VPS: the installer points nginx at it (re-run the full install after changing it). Docker: keep 3000. Hostinger web hosting: don't set it |

@@ -18,10 +18,12 @@ import { BufferJSON, initAuthCreds, proto } from '@whiskeysockets/baileys';
 const TENANT_LISTS = {
   apiKeys: 'api_keys', contacts: 'contacts', campaigns: 'campaigns', messages: 'messages', tickets: 'tickets',
   users: 'users', departments: 'departments', flows: 'flows', authTokens: 'auth_tokens',
+  webhookOutbox: 'webhook_outbox',
 };
 // platform lists -> table (audit has no ids and is capped, so it is kept in platform_kv)
 const PLATFORM_LISTS = {
   tenants: 'tenants', superAdmins: 'super_admins', payments: 'payments', requests: 'plan_requests', authTokens: 'admin_tokens',
+  suiteInbox: 'suite_inbox',
 };
 const TENANT_KV = 'tenant_kv';
 const PLATFORM_KV = 'platform_kv';
@@ -336,4 +338,43 @@ export async function importAuthFiles(tenantId, sessionId, files) {
       [values.slice(i, i + 200)]);
   }
   if (files['creds.json']) authSet(tenantId).add(sessionId);
+}
+
+/* ---------- one active copy per database ---------- */
+// Hosts may run more than one copy of the app (Hostinger runs one for domain.com and one for
+// www.domain.com). Only the copy holding this lock loads data, connects WhatsApp and runs background
+// jobs; the others stay idle. GET_LOCK is held by one dedicated connection and released by MySQL as
+// soon as that connection ends (process exit, crash), so a waiting copy can take over.
+let lockConn = null;
+const lockName = () => `wbportal:${process.env.DB_NAME || config().uri || ''}`.slice(0, 64);
+
+async function openLockConn() {
+  const { waitForConnections, connectionLimit, maxIdle, idleTimeout, ...cfg } = config();
+  const conn = await mysql.createConnection(cfg);
+  conn.on('error', () => {}); // a dropped connection is noticed by the keep-alive below
+  return conn;
+}
+
+// Waits (up to `waitSec`) for the lock. Returns true when this process holds it.
+export async function acquireInstanceLock(waitSec = 0) {
+  lockConn ||= await openLockConn();
+  const [[row]] = await lockConn.query('SELECT GET_LOCK(?, ?) AS ok', [lockName(), waitSec]);
+  return Number(row.ok) === 1;
+}
+
+// Keeps the lock connection alive. If it drops and the lock can't be taken back (another copy has it),
+// onLost() is called: this copy must stop, or two copies would write the same data.
+export function keepInstanceLock(onLost) {
+  const t = setInterval(async () => {
+    try {
+      await lockConn.query('SELECT 1');
+    } catch {
+      try {
+        lockConn?.destroy();
+        lockConn = null;
+        if (!(await acquireInstanceLock(15))) { clearInterval(t); onLost(); }
+      } catch { /* MySQL unreachable: try again on the next tick */ }
+    }
+  }, 20000);
+  t.unref?.();
 }

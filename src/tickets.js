@@ -2,7 +2,7 @@
 // "actor" arguments are { id, name } of whoever performs the action (a user, the API, or the system).
 import { db, save, uid, now, normalizePhone, logMessage } from './store.js';
 import { sendText, sendMedia } from './whatsapp.js';
-import { emitWebhook } from './webhook.js';
+import { emitWebhook, emitMessageSent } from './webhook.js';
 import {
   routeDepartment, pickAssignee, findDepartment, findUser, userName, canSeeTicket,
 } from './departments.js';
@@ -154,6 +154,9 @@ async function sendOut(t, text, actor, file) {
 export async function replyToTicket(t, { text, file }, actor) {
   if (!text && !file) throw fail('text or file is required');
   const entry = await sendOut(t, text, actor, file);
+  if (!String(actor.id || '').startsWith('api:')) { // replies made with an API key are known to the caller
+    emitMessageSent({ sessionId: t.sessionId, to: t.phone, text: entry.text, messageId: entry.waId, via: 'ticket' });
+  }
   if (!t.firstResponseAt) t.firstResponseAt = entry.at;
   // first person to reply takes an unassigned ticket
   if (!t.assignee && findUser(actor.id)) {

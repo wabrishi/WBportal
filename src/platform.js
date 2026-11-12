@@ -9,6 +9,7 @@ import {
 } from './store.js';
 import { SESSIONS_DIR } from './paths.js';
 import * as storage from './storage.js';
+import { hubMode, hubHome } from './suite.js';
 
 const DAY = 24 * 60 * 60 * 1000;
 const fail = (msg, status = 400) => Object.assign(new Error(msg), { status });
@@ -35,6 +36,7 @@ const DEFAULT_SETTINGS = {
 const empty = () => ({
   settings: DEFAULT_SETTINGS, plans: DEFAULT_PLANS, tenants: [], superAdmins: [], userIndex: {},
   payments: [], requests: [], authTokens: [], audit: [],
+  suiteInbox: [], // ids of Hub events already processed (dedupe), see hub.js
 });
 
 // Filled by loadPlatform() at startup; always the same object, so imports of it stay valid.
@@ -83,6 +85,7 @@ function newTenantId(name) {
 // Effective subscription state, computed from dates.
 export function tenantStatus(t) {
   if (!t) return { state: 'missing', canUse: false };
+  if (hubMode()) return hubStatus(t);
   const nowMs = Date.now();
   if (t.status === 'suspended') return { state: 'suspended', canUse: false, canLogin: false, message: 'This account is suspended. Please contact support.' };
   if (t.status === 'trial') {
@@ -103,15 +106,70 @@ export function tenantStatus(t) {
   return { state: t.status, canUse: false, canLogin: true };
 }
 
+// AUTH_MODE=hub: the WhatsApp module's entitlement from the Hub decides (claims / subscription.updated).
+// Creating and sending is allowed while now <= accessUntil and the subscription isn't cancelled.
+function hubStatus(t) {
+  if (t.hubSuspended) return { state: 'suspended', canUse: false, canLogin: false, message: 'This workspace is suspended. Please contact support.' };
+  const e = t.hubEntitlement;
+  if (!e) {
+    return { state: 'not_enabled', canUse: false, canLogin: false,
+      message: `WhatsApp Marketing is not enabled for this workspace. Enable it in your account: ${hubHome()}` };
+  }
+  const nowMs = Date.now();
+  const until = new Date(e.accessUntil || e.validUntil).getTime();
+  const valid = new Date(e.validUntil).getTime();
+  if (e.status === 'CANCELLED' || !(nowMs <= until)) {
+    return { state: 'expired', canUse: false, canLogin: true, message: 'Your WhatsApp Marketing subscription has ended. Renew it in your account to continue.' };
+  }
+  const left = Math.max(0, Math.ceil((valid - nowMs) / DAY));
+  if (e.status === 'TRIAL') return { state: 'trial', canUse: true, canLogin: true, daysLeft: left };
+  if (nowMs > valid) return { state: 'grace', canUse: true, canLogin: true, daysLeft: 0, message: 'Your subscription has ended. Renew now to avoid interruption.' };
+  return { state: 'active', canUse: true, canLogin: true, daysLeft: left };
+}
+
+// The workspace's plan as { id, name, price, limits } — local plan, or the Hub entitlement in hub mode.
+export function tenantPlan(t) {
+  if (hubMode()) {
+    const e = t?.hubEntitlement;
+    return e ? { id: e.planId || e.plan, name: e.plan, price: null, limits: e.limits || {} } : null;
+  }
+  const plan = findPlan(t?.plan);
+  return plan ? { id: plan.id, name: plan.name, price: plan.price, limits: plan.limits } : null;
+}
+
 export function tenantSummary(t) {
   const st = tenantStatus(t);
-  const plan = findPlan(t.plan);
+  const e = hubMode() ? t.hubEntitlement : null;
   return {
-    id: t.id, name: t.name, plan: plan ? { id: plan.id, name: plan.name, price: plan.price, limits: plan.limits } : null,
+    id: t.id, name: t.name, plan: tenantPlan(t),
     status: t.status, state: st.state, canUse: st.canUse, daysLeft: st.daysLeft ?? null, message: st.message || null,
-    trialEndsAt: t.trialEndsAt || null, paidUntil: t.paidUntil || null, createdAt: t.createdAt,
+    trialEndsAt: e ? (e.status === 'TRIAL' ? e.validUntil : null) : t.trialEndsAt || null,
+    paidUntil: e ? (e.status === 'TRIAL' ? null : e.validUntil) : t.paidUntil || null,
+    createdAt: t.createdAt,
   };
 }
+
+// AUTH_MODE=hub: creates (or links) the local workspace for a Hub workspace. `id` = the Hub's
+// tenants.wa link (pre-Hub workspace) or the Hub workspace id.
+export function ensureHubTenant({ id, name, ownerEmail, hubWorkspaceId }) {
+  let t = findTenant(id);
+  if (!t) {
+    if (!/^[a-z0-9-]{3,64}$/.test(String(id))) throw fail('Invalid workspace id from the Hub');
+    t = {
+      id, name: String(name || 'Workspace').trim().slice(0, 80), ownerEmail: String(ownerEmail || '').toLowerCase(),
+      plan: null, status: 'hub', trialEndsAt: null, paidUntil: null, createdAt: now(), notes: 'Created by Suite Hub sign-in',
+    };
+    createTenantStore(id, {});
+    platform.tenants.push(t);
+  }
+  if (hubWorkspaceId) t.hubWorkspaceId = hubWorkspaceId;
+  if (name) t.name = String(name).trim().slice(0, 80);
+  savePlatform();
+  return t;
+}
+// Local workspace for a Hub workspace id (linked pre-Hub workspace, or same id).
+export const tenantForHubWorkspace = (wsId) =>
+  platform.tenants.find((t) => t.hubWorkspaceId === wsId) || findTenant(wsId);
 
 // Creates a workspace with its owner (admin) account. Used by signup, the super admin and migration.
 export function createTenant({ company, name, email, password, plan, status = 'trial', trialDays, passwordHash, id }, hashPassword) {
@@ -196,12 +254,13 @@ export function assertAllowed(kind, adding = 1) {
   const st = tenantStatus(t);
   if (!st.canUse) throw fail(st.message || 'Your subscription is not active.', 402);
   if (!kind) return;
-  const limit = findPlan(t.plan)?.limits?.[kind];
-  if (limit == null || limit < 0) return;
+  const plan = tenantPlan(t);
+  const limit = plan?.limits?.[kind];
+  if (limit == null || limit < 0) return; // -1 / not set = unlimited
   const used = usage()[kind];
   if (used + adding > limit) {
-    throw fail(`Your ${findPlan(t.plan).name} plan allows ${limit.toLocaleString()} ${LIMIT_LABEL[kind]}` +
-      ` (you have ${used.toLocaleString()}). Upgrade your plan on the Subscription page.`, 402);
+    throw fail(`Your ${plan.name} plan allows ${limit.toLocaleString()} ${LIMIT_LABEL[kind]}` +
+      ` (you have ${used.toLocaleString()}). ${hubMode() ? 'Upgrade your plan in your account\'s Billing page.' : 'Upgrade your plan on the Subscription page.'}`, 402);
   }
 }
 

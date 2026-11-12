@@ -27,7 +27,8 @@ const empty = () => ({
   authTokens: [],  // { hash, userId, exp } — dashboard logins
   menus: {},       // "<sessionId>:<phone>" -> last button menu sent { buttons, campaignId, sentAt }
   settings: null,  // anti-block protection settings (src/settings.js)
-  workspace: {},   // { webhookUrl } — workspace settings
+  workspace: {},   // { webhookUrl, webhookSecret } — workspace settings
+  webhookOutbox: [], // outgoing webhook events waiting for (re)delivery, see src/webhook.js
   sessionMeta: {}, // sessionId -> { firstSeenAt, numberSince, events: [{ type, at }] }
   flows: [],       // chatbot flows (src/flows.js)
   flowRuns: {},    // "<sessionId>:<phone>" -> active chatbot conversation

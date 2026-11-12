@@ -84,7 +84,7 @@ async function load(tab) {
   if (tab === 'settings') fillSettings();
   if (tab === 'audit') await loadAudit();
 }
-setInterval(() => { if (token && !openTenant && ['overview', 'tenants', 'requests'].includes(currentTab)) load(currentTab).catch(() => {}); }, 20000);
+setInterval(() => { if (token && !document.hidden && !openTenant && ['overview', 'tenants', 'requests'].includes(currentTab)) load(currentTab).catch(() => {}); }, 20000);
 
 function fillPlanSelects() {
   $$('.plan-select').forEach((s) => {

@@ -1,7 +1,7 @@
 // Bulk campaign runner: throttled, personalised, respects opt-outs and daily limits.
 import { db, save, uid, now, logMessage, bumpDaily, dailyCount } from './store.js';
 import { sendText, sendMedia, sendButtons, isOnWhatsApp, getSession } from './whatsapp.js';
-import { emitWebhook } from './webhook.js';
+import { emitWebhook, emitMessageSent } from './webhook.js';
 import { getSettings, inQuietHours } from './settings.js';
 import { effectiveDailyLimit } from './health.js';
 import { assertAllowed } from './platform.js';
@@ -151,16 +151,18 @@ async function run(c, ctl) {
         continue;
       }
       const text = renderTemplate(c.message, contact || r);
+      let res;
       if (c.buttons?.length) {
         const image = c.mediaUrl ? { url: c.mediaUrl } : null;
-        await sendButtons(c.sessionId, r.phone, { text, footer: c.footer, image, buttons: c.buttons, campaignId: c.id });
-      } else if (c.mediaUrl) await sendMedia(c.sessionId, r.phone, { url: c.mediaUrl, caption: text });
-      else await sendText(c.sessionId, r.phone, text);
+        res = await sendButtons(c.sessionId, r.phone, { text, footer: c.footer, image, buttons: c.buttons, campaignId: c.id });
+      } else if (c.mediaUrl) res = await sendMedia(c.sessionId, r.phone, { url: c.mediaUrl, caption: text });
+      else res = await sendText(c.sessionId, r.phone, text);
       r.status = 'sent';
       r.at = now();
       c.stats.sent++;
       bumpDaily(c.sessionId);
-      logMessage({ sessionId: c.sessionId, to: r.phone, text, status: 'sent', campaignId: c.id });
+      logMessage({ sessionId: c.sessionId, to: r.phone, text, status: 'sent', campaignId: c.id, waId: res?.key?.id });
+      emitMessageSent({ sessionId: c.sessionId, to: r.phone, text, messageId: res?.key?.id, via: 'campaign' });
     } catch (e) {
       r.status = 'failed';
       r.error = e.message;

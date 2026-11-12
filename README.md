@@ -16,6 +16,8 @@ a WhatsApp Web QR code (no Meta Business API account needed). Built on Node.js, 
 - **MySQL storage**: all data and WhatsApp logins are stored in MySQL/MariaDB when `DB_NAME` is set
   (tables are created automatically). Without a database, JSON files under `STORAGE_DIR` are used
   (handy for local development). See `src/storage.js` and `src/mysql.js`.
+- **Suite Hub (optional)**: `AUTH_MODE=hub` switches to "Sign in with your account" (OIDC) and takes plans,
+  limits and members from the Suite Hub (`src/hub.js`, see DEPLOY.md).
 - **Isolated workspaces**: every row carries its workspace id (`tenant_id`); every request runs
   inside its workspace (`src/store.js`), so one customer can never read another's data.
 - **Plans & limits**: WhatsApp numbers, users, contacts, messages per month, chatbot flows (`src/platform.js`).
@@ -52,7 +54,10 @@ a WhatsApp Web QR code (no Meta Business API account needed). Built on Node.js, 
   links, with a fix for each. Protection settings that campaigns obey: delays, daily limit, warm-up
   for young numbers, quiet hours and auto-pause on failure/opt-out spikes (`src/health.js`, `src/settings.js`)
 - **Auto opt-out**: replies of `STOP` / `UNSUBSCRIBE` mark the contact opted out
-- **Webhooks** for incoming messages, connection events, opt-outs and campaign completion
+- **Webhooks** for incoming and sent messages, tickets, chatbot actions, connection events, opt-outs and campaigns.
+  Signed (`X-Suite-Signature: v1=<hex HMAC-SHA256(secret, "<X-Suite-Timestamp>.<raw body>")>`, secret on the
+  Subscription page), stored in an outbox and retried after 1 m, 5 m, 30 m, 2 h and 12 h. Delivery is at-least-once:
+  dedupe by the event `id` / `X-Suite-Event-Id` header.
 - **Dashboard**: stats, QR linking, send, contacts, campaigns, logs, API keys, API docs
 
 ## Quick start
@@ -87,7 +92,7 @@ src/tickets.js       Support tickets
 src/store.js         Per-workspace data (in memory, saved via storage.js)
 src/platform.js      Platform data: workspaces, plans, payments, super admins
 src/storage.js       Storage backend: MySQL (src/mysql.js) or JSON files
-src/webhook.js       Outgoing webhooks
+src/webhook.js       Outgoing webhooks (signed, outbox + retries)
 public/              Dashboard (HTML/CSS/JS)
 sessions/            WhatsApp logins when running without MySQL (keep private, never commit)
 ```
