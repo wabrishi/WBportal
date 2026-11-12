@@ -1,17 +1,17 @@
-// Storage. Every customer workspace ("tenant") has its own JSON file: data/tenants/<tenantId>/db.json.
+// Storage. Every customer workspace ("tenant") has its own data, saved in MySQL (or JSON files when no
+// database is configured — see storage.js). It is loaded into memory at startup (loadStores) and
+// written back shortly after each change (save).
 // `db` always points at the *current* tenant's data, chosen by AsyncLocalStorage: each request,
 // WhatsApp event and background job runs inside runAsTenant(tenantId, …). Using `db` outside a tenant
 // context throws, so one customer's code path can never read another customer's data by accident.
-// Platform-wide data (tenants, plans, super admins) lives in data/platform.json — see platform.js.
-import fs from 'node:fs';
-import path from 'node:path';
+// Platform-wide data (tenants, plans, super admins) is kept separately — see platform.js.
 import crypto from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
 
 import { DATA_DIR } from './paths.js';
+import * as storage from './storage.js';
 
 export { DATA_DIR };
-export const TENANTS_DIR = path.join(DATA_DIR, 'tenants');
 
 const empty = () => ({
   apiKeys: [],     // { id, name, key, createdAt }
@@ -39,17 +39,23 @@ const als = new AsyncLocalStorage();
 export const runAsTenant = (tenantId, fn) => als.run(tenantId, fn);
 export const currentTenantId = () => als.getStore();
 
-const stores = new Map(); // tenantId -> { data, timer }
-const tenantFile = (id) => path.join(TENANTS_DIR, id, 'db.json');
+const stores = new Map(); // tenantId -> { data, timer, exists }
 const validId = (id) => /^[a-z0-9-]{3,64}$/.test(String(id));
+// Batch changes: a campaign or a chat burst touches the data many times a second.
+const SAVE_DELAY_MS = storage.USE_MYSQL ? 1000 : 200;
+
+// Loads every workspace into memory. Called once at startup, before anything else uses `db`.
+export async function loadStores() {
+  for (const [id, data] of await storage.loadTenants()) {
+    if (validId(id)) stores.set(id, { data: { ...empty(), ...data }, timer: null, exists: true });
+  }
+}
 
 function storeFor(id) {
   let s = stores.get(id);
   if (!s) {
     if (!validId(id)) throw new Error('Invalid workspace id');
-    const file = tenantFile(id);
-    const data = fs.existsSync(file) ? { ...empty(), ...JSON.parse(fs.readFileSync(file, 'utf8')) } : empty();
-    s = { data, timer: null };
+    s = { data: empty(), timer: null, exists: false };
     stores.set(id, s);
   }
   return s;
@@ -69,14 +75,20 @@ export const db = new Proxy({}, {
   getOwnPropertyDescriptor: (_, k) => ({ ...Reflect.getOwnPropertyDescriptor(current().data, k), configurable: true }),
 });
 
-function writeTenant(id) {
+async function writeTenant(id) {
   const s = stores.get(id);
   if (!s) return;
+  clearTimeout(s.timer);
+  s.timer = null;
   if (s.data.messages.length > 20000) s.data.messages = s.data.messages.slice(-20000); // keep the log bounded
-  const file = tenantFile(id);
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file + '.tmp', JSON.stringify(s.data, null, 2));
-  fs.renameSync(file + '.tmp', file);
+  s.exists = true;
+  try {
+    await storage.writeTenant(id, s.data);
+  } catch (e) {
+    console.error(`[${id}] saving failed, retrying in 5s:`, e.message);
+    if (stores.get(id) === s && !s.timer) s.timer = setTimeout(() => { s.timer = null; writeTenant(id); }, 5000);
+    throw e;
+  }
 }
 
 export function save() {
@@ -84,26 +96,28 @@ export function save() {
   if (!id) throw new Error('No workspace selected (tenant context missing)');
   const s = storeFor(id);
   clearTimeout(s.timer);
-  s.timer = setTimeout(() => { s.timer = null; writeTenant(id); }, 200);
+  s.timer = setTimeout(() => { s.timer = null; writeTenant(id).catch(() => {}); }, SAVE_DELAY_MS);
 }
 
-// Write everything now (used on shutdown).
-export function flushAll() {
-  for (const [id, s] of stores) { clearTimeout(s.timer); writeTenant(id); }
+// Write everything now (used on shutdown and by /api/cron).
+export async function flushAll() {
+  const ids = [...stores].filter(([, s]) => s.exists || s.timer).map(([id]) => id);
+  await Promise.allSettled(ids.map((id) => writeTenant(id)));
 }
 
 export function createTenantStore(id, init = {}) {
   if (!validId(id)) throw new Error('Invalid workspace id');
-  if (fs.existsSync(tenantFile(id))) throw new Error('Workspace already exists');
-  stores.set(id, { data: { ...empty(), ...init }, timer: null });
-  writeTenant(id);
+  if (stores.get(id)?.exists) throw new Error('Workspace already exists');
+  stores.set(id, { data: { ...empty(), ...init }, timer: null, exists: true });
+  writeTenant(id).catch(() => {});
 }
 export function deleteTenantStore(id) {
+  const s = stores.get(id);
+  if (s) clearTimeout(s.timer);
   stores.delete(id);
-  fs.rmSync(path.join(TENANTS_DIR, id), { recursive: true, force: true });
+  storage.removeTenant(id).catch((e) => console.error(`[${id}] delete failed:`, e.message));
 }
-export const listTenantIds = () =>
-  (fs.existsSync(TENANTS_DIR) ? fs.readdirSync(TENANTS_DIR).filter((d) => fs.existsSync(tenantFile(d))) : []);
+export const listTenantIds = () => [...stores].filter(([, s]) => s.exists).map(([id]) => id);
 
 // Run fn once inside every tenant (startup tasks, background loops).
 export async function forEachTenant(fn) {

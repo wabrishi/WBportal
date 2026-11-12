@@ -13,8 +13,11 @@ a WhatsApp Web QR code (no Meta Business API account needed). Built on Node.js, 
 | `/app` | customers | Their dashboard (everything below), incl. **Subscription** page |
 | `/admin` | you | Super admin: customers, plan requests, payments, plans, settings, activity log |
 
-- **Isolated workspaces**: each customer has its own data file (`data/tenants/<id>/db.json`) and
-  WhatsApp logins (`sessions/<id>/`). Every request runs inside its workspace (`src/store.js`).
+- **MySQL storage**: all data and WhatsApp logins are stored in MySQL/MariaDB when `DB_NAME` is set
+  (tables are created automatically). Without a database, JSON files under `STORAGE_DIR` are used
+  (handy for local development). See `src/storage.js` and `src/mysql.js`.
+- **Isolated workspaces**: every row carries its workspace id (`tenant_id`); every request runs
+  inside its workspace (`src/store.js`), so one customer can never read another's data.
 - **Plans & limits**: WhatsApp numbers, users, contacts, messages per month, chatbot flows (`src/platform.js`).
   Expired trials/subscriptions can log in and read, but sending, campaigns and chatbots pause.
 - **Manual billing**: customers request a plan and pay by UPI/bank; you record the payment in `/admin`,
@@ -81,10 +84,12 @@ src/routes.js        REST API
 src/auth.js          Users, logins, roles, API keys
 src/departments.js   Ticket routing, auto-assign, ticket visibility
 src/tickets.js       Support tickets
-src/store.js         JSON-file database (data/db.json)
+src/store.js         Per-workspace data (in memory, saved via storage.js)
+src/platform.js      Platform data: workspaces, plans, payments, super admins
+src/storage.js       Storage backend: MySQL (src/mysql.js) or JSON files
 src/webhook.js       Outgoing webhooks
 public/              Dashboard (HTML/CSS/JS)
-sessions/            WhatsApp login credentials (keep private, never commit)
+sessions/            WhatsApp logins when running without MySQL (keep private, never commit)
 ```
 
 ## Important: account safety and compliance
@@ -108,5 +113,6 @@ Follow your local marketing and privacy laws (e.g. India's DPDP Act and TRAI rul
 
 - Put it behind HTTPS (nginx / Caddy) and set a strong `ADMIN_PASSWORD`.
 - Run with a process manager: `npm i -g pm2 && pm2 start server.js --name wa-marketing`.
-- `data/db.json` is fine for a few thousand contacts; move to PostgreSQL/MongoDB for larger scale.
-- Back up the `sessions/` folder; losing it means re-scanning QR codes.
+- Use MySQL in production (`DB_*` variables) and back up the database; the `wa_auth` table holds the
+  WhatsApp logins, losing it means re-scanning QR codes. (Without MySQL: back up `data/` and `sessions/`.)
+- Run a single instance of the app: data is kept in memory and written to MySQL in the background.

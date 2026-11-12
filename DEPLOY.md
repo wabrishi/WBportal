@@ -8,7 +8,8 @@ There are three ways. Pick one:
 | WhatsApp numbers stay connected 24/7 | ✅ | ✅ | ⚠️ Not guaranteed (see below) |
 | Capacity (our estimate, ~50 MB per number) | KVM 2: ~100 numbers | KVM 2: ~100 numbers | a handful |
 | HTTPS | automatic (Let's Encrypt) | via Traefik template | automatic (hPanel) |
-| Backups | daily, automatic | Docker volume + VPS snapshots | hPanel backups |
+| Storage | files (or MySQL) | files (or MySQL) | **MySQL** (hPanel database) |
+| Backups | daily, automatic | Docker volume + VPS snapshots | hPanel database backups |
 | Recommended for paying customers | ✅ **Yes** | ✅ Yes | ❌ Demo / testing only |
 
 **Why not web hosting for production?** This app keeps a live connection to WhatsApp open for every
@@ -64,30 +65,46 @@ Backup (the volume is named `<project name>_wa-storage`; check with `docker volu
 
 ---
 
-## C. Web hosting (Business / Cloud) — demo / testing
+## C. Web hosting (Business / Cloud) with MySQL
 
-1. On your PC: `npm run package` → creates `deploy/wa-saas-2.0.0.zip` (no node_modules, no data).
-2. hPanel → **Websites** → **Create site** → **Web App** → **Upload your website files** → upload the ZIP.
+1. **Create the database**: hPanel → **Websites** → your site → **Databases** → **MySQL Databases**.
+   Create a database and a user (e.g. `u123456789_wa` / `u123456789_wa`) with a strong password.
+   Note the **database name**, **user**, **password** and **host** shown in the list (usually `localhost`).
+   You don't need to create any tables: the app creates them on first start.
+2. On your PC: `npm run package` → creates `deploy/wa-saas-2.0.0.zip` (no node_modules, no data).
+3. hPanel → **Websites** → **Create site** → **Web App** → **Upload your website files** → upload the ZIP.
    (Or: put the project on GitHub and choose **Import Git Repository**.)
-3. Build settings: framework **Express** (or **Other**), **Node.js 22.x**, entry file **server.js**.
-4. **Environment variables** → Edit → add:
+4. Build settings: framework **Express** (or **Other**), **Node.js 22.x**, entry file **server.js**.
+5. **Environment variables** → Edit → add:
+   - `DB_HOST` = the MySQL host from step 1 (usually `localhost`)
+   - `DB_USER`, `DB_PASSWORD`, `DB_NAME` = from step 1
    - `SETUP_KEY` = a random secret (protects the first-run setup page)
    - `CRON_KEY` = another random secret
 
    **Don't add `PORT`** (and don't "Import .env" from `.env.example`, which contains `PORT=3000`):
-   Hostinger assigns the port itself, and a fixed `PORT` can stop the site from loading. After deploying,
-   **Runtime logs** show `Running at http://localhost:<port>`, the port Hostinger gave the app.
-5. **Deploy**. Then open `https://yourdomain.com/admin`, enter the setup key and create your account.
-6. Keep it awake and reconnect numbers: website dashboard → **Advanced** → **Cron Jobs** → every 5 minutes:
+   Hostinger assigns the port itself, and a fixed `PORT` can stop the site from loading.
+6. **Deploy**. **Runtime logs** should show `Storage: MySQL database "…"` and
+   `Running at http://localhost:<port>`. If you see `Startup failed`, re-check the `DB_*` values.
+7. Open `https://yourdomain.com/admin`, enter the setup key and create your account.
+8. Keep it awake and reconnect numbers: website dashboard → **Advanced** → **Cron Jobs** → every 5 minutes:
    ```
    curl -s "https://yourdomain.com/api/cron?key=YOUR_CRON_KEY"
    ```
 
-**Your data is safe across redeploys:** Hostinger replaces the app folder (`…/hbuilds/…`) on every
-deploy, so the app automatically stores everything in `/home/<user>/domains/<domain>/app-storage`,
-outside that folder (shown as `Storage: …` in **Runtime logs**). Back it up with hPanel backups / File Manager.
+**Your data is in MySQL**: customer data, settings, payments and WhatsApp logins (table `wa_auth`) are
+all in the database, so redeploys never touch them. Back up with hPanel → **Databases** → **Backups**
+or phpMyAdmin → **Export**. Browse the data in phpMyAdmin (each list — `contacts`, `messages`,
+`tickets`, … — is a table with one row per item; the item itself is the JSON in the `data` column).
+
+**Already running on JSON files?** Add the `DB_*` variables and redeploy. On its first start with an
+empty database the app imports everything from `…/domains/<domain>/app-storage` (data **and** WhatsApp
+logins, so numbers stay linked); the files are left in place as a backup. `Runtime logs` show
+`Importing existing data … Import finished.`
 
 Logs: website dashboard → **Runtime logs**. Restart: dashboard → **Running** → **Restart**.
+
+**Run one instance only.** The app keeps data in memory and saves changes to MySQL within ~1 second;
+two copies of the app on the same database would overwrite each other's changes.
 
 ---
 
@@ -101,6 +118,9 @@ Logs: website dashboard → **Runtime logs**. Restart: dashboard → **Running**
 **Moving your existing data** (from your PC): copy your local `data` and `sessions` folders into the
 server's storage folder (A: `/home/wa/storage/`, B: the Docker volume, C: `…/domains/<domain>/app-storage/`)
 before the first start there. Your old single-company data is turned into the first workspace automatically.
+With MySQL configured, the app imports these folders into the empty database on its first start.
+(Or run the app once on your PC with the `DB_*` variables pointing at the server's database, if your
+host allows remote MySQL connections: hPanel → Databases → **Remote MySQL**.)
 
 ## Daily operations
 
@@ -115,7 +135,9 @@ before the first start there. Your old single-company data is turned into the fi
 |---|---|
 | `SETUP_KEY` | Required to use the first-run `/admin` setup page |
 | `CRON_KEY` | Enables `/api/cron?key=…` (wake-up + reconnect numbers) |
-| `STORAGE_DIR` | Where data + WhatsApp logins are stored (automatic if empty) |
+| `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | MySQL/MariaDB database. When `DB_NAME` is set, everything is stored there (tables created automatically). `DATABASE_URL=mysql://user:pass@host:3306/db` also works |
+| `DB_CONNECTION_LIMIT` | Max MySQL connections (default 5) |
+| `STORAGE_DIR` | Without MySQL: where data + WhatsApp logins are stored as files (automatic if empty). With MySQL: only read once, to import existing data |
 | `TRUST_PROXY` | Reverse-proxy hops for real visitor IPs (automatic; Docker/Traefik: `1`) |
 | `PORT` | Port to listen on (default 3000). A value set by the host wins over `.env`. VPS: the installer points nginx at it (re-run the full install after changing it). Docker: keep 3000. Hostinger web hosting: don't set it |
 | `SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD` | Optional: create the super admin on first start instead of the setup page |
@@ -123,5 +145,6 @@ before the first start there. Your old single-company data is turned into the fi
 
 ## Scaling later
 
-The per-workspace storage is fine for the first few hundred customers on one server. Beyond that,
-move storage to PostgreSQL/MySQL; all data access goes through `src/store.js` and `src/platform.js`.
+The app loads all data into memory at startup and writes changes to MySQL row by row. That is fine for
+the first few hundred customers on one server. Beyond that, move hot paths (e.g. the message log) to
+direct SQL queries; all data access goes through `src/store.js`, `src/platform.js` and `src/mysql.js`.

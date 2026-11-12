@@ -1,14 +1,15 @@
 // SaaS platform data: customer workspaces (tenants), plans, payments, super admins.
-// Stored in data/platform.json, separate from each workspace's own data.
+// Stored in MySQL (platform tables) or data/platform.json (see storage.js), separate from each
+// workspace's own data. Loaded into memory at startup by loadPlatform().
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import {
-  DATA_DIR, db, uid, now, monthKey, createTenantStore, deleteTenantStore, runAsTenant, currentTenantId,
+  DATA_DIR, db, uid, now, monthKey, createTenantStore, deleteTenantStore, runAsTenant, currentTenantId, flushAll,
 } from './store.js';
 import { SESSIONS_DIR } from './paths.js';
+import * as storage from './storage.js';
 
-const FILE = path.join(DATA_DIR, 'platform.json');
 const DAY = 24 * 60 * 60 * 1000;
 const fail = (msg, status = 400) => Object.assign(new Error(msg), { status });
 
@@ -36,23 +37,30 @@ const empty = () => ({
   payments: [], requests: [], authTokens: [], audit: [],
 });
 
-fs.mkdirSync(DATA_DIR, { recursive: true });
-export const platform = fs.existsSync(FILE) ? { ...empty(), ...JSON.parse(fs.readFileSync(FILE, 'utf8')) } : empty();
-platform.settings = { ...DEFAULT_SETTINGS, ...platform.settings };
+// Filled by loadPlatform() at startup; always the same object, so imports of it stay valid.
+export const platform = empty();
+
+export async function loadPlatform() {
+  const saved = await storage.loadPlatform();
+  if (saved) Object.assign(platform, saved);
+  platform.settings = { ...DEFAULT_SETTINGS, ...platform.settings };
+}
 
 let timer = null;
 export function savePlatform() {
   clearTimeout(timer);
-  timer = setTimeout(() => {
-    timer = null;
-    fs.writeFileSync(FILE + '.tmp', JSON.stringify(platform, null, 2));
-    fs.renameSync(FILE + '.tmp', FILE);
-  }, 200);
+  timer = setTimeout(() => { flushPlatform().catch(() => {}); }, storage.USE_MYSQL ? 500 : 200);
 }
-export function flushPlatform() {
+export async function flushPlatform() {
   clearTimeout(timer);
-  fs.writeFileSync(FILE + '.tmp', JSON.stringify(platform, null, 2));
-  fs.renameSync(FILE + '.tmp', FILE);
+  timer = null;
+  try {
+    await storage.writePlatform(platform);
+  } catch (e) {
+    console.error('Saving platform data failed, retrying in 5s:', e.message);
+    if (!timer) timer = setTimeout(() => { flushPlatform().catch(() => {}); }, 5000);
+    throw e;
+  }
 }
 export function audit(by, action, details = {}) {
   platform.audit = [...platform.audit, { at: now(), by, action, ...details }].slice(-2000);
@@ -165,9 +173,8 @@ export function releaseLogin(login) {
 
 /* ---------- plan limits (call inside a tenant context) ---------- */
 export function usage() {
-  const sessionsDir = path.join(SESSIONS_DIR, currentTenantId());
   const numbers = new Set([
-    ...(fs.existsSync(sessionsDir) ? fs.readdirSync(sessionsDir) : []),
+    ...storage.authSessionIds(currentTenantId()),
     ...Object.keys(db.sessionMeta || {}),
   ]).size;
   return {
@@ -241,8 +248,9 @@ export function createUpgradeRequest(tenantId, { planId, months = 1, message = '
 }
 
 /* ---------- one-time migration from the single-company version ---------- */
-// Moves data/db.json → data/tenants/<id>/db.json and sessions/<number> → sessions/<id>/<number>.
-export function migrateLegacy() {
+// Moves data/db.json into workspace "main" and sessions/<number> into that workspace's WhatsApp logins.
+// Works with both storage backends (MySQL or files).
+export async function migrateLegacy() {
   const legacy = path.join(DATA_DIR, 'db.json');
   if (!fs.existsSync(legacy) || platform.tenants.length) return null;
   const data = JSON.parse(fs.readFileSync(legacy, 'utf8'));
@@ -258,20 +266,24 @@ export function migrateLegacy() {
   for (const u of data.users || []) platform.userIndex[String(u.username).toLowerCase()] = tenant.id;
   data.workspace = { webhookUrl: process.env.WEBHOOK_URL || '' };
   data.authTokens = []; // tokens now carry the workspace id; everyone signs in again once
-  const dir = path.join(DATA_DIR, 'tenants', tenant.id);
-  fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(path.join(dir, 'db.json'), JSON.stringify(data, null, 2));
-  fs.renameSync(legacy, path.join(DATA_DIR, 'db.legacy-backup.json'));
+  createTenantStore(tenant.id, data);
   // WhatsApp logins
   const sDir = SESSIONS_DIR;
   if (fs.existsSync(sDir)) {
-    fs.mkdirSync(path.join(sDir, tenant.id), { recursive: true });
     for (const d of fs.readdirSync(sDir)) {
       const from = path.join(sDir, d);
-      if (d !== tenant.id && fs.existsSync(path.join(from, 'creds.json'))) fs.renameSync(from, path.join(sDir, tenant.id, d));
+      if (d === tenant.id || !fs.existsSync(path.join(from, 'creds.json'))) continue;
+      if (storage.USE_MYSQL) {
+        await storage.importAuthFiles(tenant.id, d, storage.readSessionDir(from));
+      } else {
+        fs.mkdirSync(path.join(sDir, tenant.id), { recursive: true });
+        fs.renameSync(from, path.join(sDir, tenant.id, d));
+      }
     }
   }
-  flushPlatform();
+  await flushPlatform();
+  await flushAll(); // the new workspace is saved before the old file is renamed
+  fs.renameSync(legacy, path.join(DATA_DIR, 'db.legacy-backup.json'));
   return tenant;
 }
 

@@ -1,10 +1,7 @@
 // Manages multiple WhatsApp Web sessions (one per business number) via QR login.
-import fs from 'node:fs';
-import path from 'node:path';
 import pino from 'pino';
 import QRCode from 'qrcode';
 import makeWASocket, {
-  useMultiFileAuthState,
   fetchLatestBaileysVersion,
   DisconnectReason,
   Browsers,
@@ -15,14 +12,15 @@ import makeWASocket, {
 } from '@whiskeysockets/baileys';
 import { db, save, uid, now, normalizePhone, currentTenantId, runAsTenant, forEachTenant } from './store.js';
 import { assertAllowed, tenantStatus, findTenant } from './platform.js';
-import { SESSIONS_DIR } from './paths.js';
+import { useAuthState, hasAuth, authSessionIds, removeAuth } from './storage.js';
 import { emitWebhook } from './webhook.js';
 import { handleIncoming } from './tickets.js';
 import { textOptions, nativeFlowButtons, rememberMenu, resolveChoice } from './buttons.js';
 import { sessionMeta } from './health.js';
 import { handleFlowMessage } from './flows.js';
 
-// WhatsApp logins: <SESSIONS_DIR>/<workspaceId>/<numberId>/ (see paths.js)
+// WhatsApp logins are stored per workspace and number in MySQL (table wa_auth) or, without a database,
+// in <SESSIONS_DIR>/<workspaceId>/<numberId>/ (see storage.js).
 const OPT_OUT_WORDS = ['stop', 'unsubscribe', 'optout', 'opt out', 'cancel'];
 const logger = pino({ level: 'warn' });
 
@@ -67,8 +65,7 @@ export async function startSession(id) {
   const existing = sessions.get(key(id));
   if (existing && ['connected', 'qr', 'starting'].includes(existing.status)) return publicView(existing);
 
-  const authDir = path.join(SESSIONS_DIR, tenantId, id);
-  const isNew = !existing && !fs.existsSync(path.join(authDir, 'creds.json')) && !db.sessionMeta[id];
+  const isNew = !existing && !hasAuth(tenantId, id) && !db.sessionMeta[id];
   assertAllowed(isNew ? 'numbers' : null); // subscription active (+ plan limit for a new number)
 
   const state = existing || { id, tenantId, retries: 0 };
@@ -77,7 +74,7 @@ export async function startSession(id) {
   // Baileys callbacks always run inside this workspace
   const inTenant = (fn) => (...args) => runAsTenant(tenantId, () => fn(...args));
 
-  const { state: auth, saveCreds } = await useMultiFileAuthState(authDir);
+  const { state: auth, saveCreds } = await useAuthState(tenantId, id);
   const { version } = await fetchLatestBaileysVersion().catch(() => ({ version: undefined }));
 
   const sock = makeWASocket({
@@ -117,7 +114,7 @@ export async function startSession(id) {
       }
       if (code === DisconnectReason.loggedOut) {
         state.status = 'logged_out';
-        fs.rmSync(authDir, { recursive: true, force: true });
+        await removeAuth(tenantId, id).catch((e) => console.error(`[${tenantId}] remove login ${id}:`, e.message));
         emitWebhook('session.logged_out', { sessionId: id });
         return;
       }
@@ -230,7 +227,7 @@ export async function stopSession(id, { logout = false } = {}) {
   s.stopped = true;
   if (logout) {
     await s.sock?.logout().catch(() => {});
-    fs.rmSync(path.join(SESSIONS_DIR, currentTenantId(), id), { recursive: true, force: true });
+    await removeAuth(currentTenantId(), id);
     delete db.sessionMeta[id]; // frees the plan slot
     save();
   } else {
@@ -324,14 +321,11 @@ export async function restoreSessions() {
 }
 export async function restoreTenantSessions(tenantId) {
   return runAsTenant(tenantId, async () => {
-    const dir = path.join(SESSIONS_DIR, tenantId);
-    if (!fs.existsSync(dir) || !tenantStatus(findTenant(tenantId)).canUse) return;
-    for (const id of fs.readdirSync(dir)) {
-      if (fs.existsSync(path.join(dir, id, 'creds.json'))) {
-        await startSession(id).catch((e) => console.error(`[${tenantId}] restore ${id} failed:`, e.message));
-      }
+    if (!tenantStatus(findTenant(tenantId)).canUse) return;
+    for (const id of authSessionIds(tenantId)) {
+      await startSession(id).catch((e) => console.error(`[${tenantId}] restore ${id} failed:`, e.message));
     }
   });
 }
 export const deleteTenantSessionFiles = (tenantId) =>
-  fs.rmSync(path.join(SESSIONS_DIR, tenantId), { recursive: true, force: true });
+  removeAuth(tenantId).catch((e) => console.error(`[${tenantId}] remove logins:`, e.message));
